@@ -1,0 +1,10 @@
+!.gitignore
+!/build/*
+*.patch
+bin/
+misc/
+*.gch
+client
+server
+*.o
+
