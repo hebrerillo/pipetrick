@@ -1,10 +1,12 @@
 #include <arpa/inet.h>
 #include "common.h"
 
+static int socketDescriptor;
+
 void socketClient(const char* serverIP = DEFAULT_SERVER_ADDRESS)
 {
     int errorNumber;
-    int socketDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+    socketDescriptor = socket(AF_INET, SOCK_STREAM, 0);
     struct sockaddr_in serverAddress;
 
     char message[BUFFER_SIZE];
@@ -35,7 +37,7 @@ void socketClient(const char* serverIP = DEFAULT_SERVER_ADDRESS)
 
     while (remainingBytesToSend)
     {
-        ssize_t bytesSent = send(socketDescriptor, bufferPosition, remainingBytesToSend, 0);
+        ssize_t bytesSent = write(socketDescriptor, bufferPosition, remainingBytesToSend);
         if (bytesSent <= 0)
         {
             errorNumber = errno;
@@ -56,7 +58,7 @@ void socketClient(const char* serverIP = DEFAULT_SERVER_ADDRESS)
 
 int main()
 {
-    
+    //std::thread threadClient(socketClient);
     socketClient();
     return 0;
 }
