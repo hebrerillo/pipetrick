@@ -4,36 +4,11 @@ static void runAcceptedClient(int* paramSocket)
 {
     int socketClient = *paramSocket;
     char clientBuffer[BUFFER_SIZE];
-    bool keepReading = true;
-    size_t bufferPosition = 0;
     memset(clientBuffer, 0, sizeof (clientBuffer));
 
-    while(keepReading)
-    {
-        ssize_t bytes = read(socketClient, clientBuffer + bufferPosition, BUFFER_SIZE);
-        if (bytes == 0)
-        {
-            printf("End reading from client\n");
-            keepReading = 0;
-        }
-        else if (bytes == -1)
-        {
-            printf("read failed. %d,%s\n", errno, strerror(errno));
-           keepReading = 0;
-        }
-        else if (bytes < BUFFER_SIZE)
-        {
-            bufferPosition += bytes;
-            keepReading = 1;
-            printf("Fragmentation. Bytes leídos = %ld, bufferPosition = %ld \n", bytes, bufferPosition);
-        }
-        else
-        {
-            printf("All read at once\n %s\n", clientBuffer);
-        }
-    }
-
-    printf("Cadena total = %s\n", clientBuffer);
+    readMessage(socketClient, clientBuffer);
+    printf("Cadena total recibida = %s\n", clientBuffer);
+    writeMessage(socketClient, clientBuffer);
 }
 
 static void socketServer()

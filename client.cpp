@@ -31,27 +31,11 @@ void socketClient(const char* serverIP = DEFAULT_SERVER_ADDRESS)
         return;
     }
 
-    char* bufferPosition = message;
-    ssize_t remainingBytesToSend = strlen(message);
-    
+    writeMessage(socketDescriptor, message);
+    memset(message, 0, sizeof (message));
+    readMessage(socketDescriptor, message);
 
-    while (remainingBytesToSend)
-    {
-        ssize_t bytesSent = write(socketDescriptor, bufferPosition, remainingBytesToSend);
-        if (bytesSent <= 0)
-        {
-            errorNumber = errno;
-            std::cerr << "Could not send data to the server. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-            return;
-        }
-        else
-        {
-            std::cout << "Bytes sent = " << bytesSent << std::endl;
-        }
-        remainingBytesToSend -= bytesSent;
-        bufferPosition += bytesSent;
-    }
-
+    printf("Recibo del servidor = %s\n", message);
     close(socketDescriptor);
 }
 
