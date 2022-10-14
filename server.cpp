@@ -1,11 +1,3 @@
-#include <sys/socket.h>
-#include <sys/types.h>
-#include <netinet/in.h>
-#include <iostream>
-#include <errno.h>
-#include <string.h>
-#include <thread>
-#include <unistd.h>
 #include "common.h"
 
 static void runAcceptedClient(int* paramSocket)
