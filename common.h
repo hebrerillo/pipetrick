@@ -15,7 +15,7 @@
 #define PORT 8080
 #define DEFAULT_SERVER_ADDRESS "127.0.0.1"
 
-void readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
+bool readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
 {
     bool keepReading = true;
     int errorNumber;
@@ -32,9 +32,16 @@ void readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
         else if (bytes == -1)
         {
             errorNumber = errno;
-            std::cerr << "Could not data from the server. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+            if (errorNumber == EAGAIN || errorNumber == EWOULDBLOCK)
+            {
+                std::cerr << "Reached time out when reading from the end point. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+            }
+            else
+            {
+                std::cerr << "Could not read data from the end point. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+            }
             keepReading = 0;
-            return;
+            return false;
         }
         else if (bytes < BUFFER_SIZE)
         {
@@ -48,9 +55,11 @@ void readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
             printf("All read at once\n %s\n", buffer);
         }
     }
+
+    return true;
 }
 
-void writeMessage(int socketDescriptor, char message[BUFFER_SIZE])
+bool writeMessage(int socketDescriptor, char message[BUFFER_SIZE])
 {
     char* buffer = message;
     int errorNumber;
@@ -62,12 +71,14 @@ void writeMessage(int socketDescriptor, char message[BUFFER_SIZE])
         if (bytesSent <= 0)
         {
             errorNumber = errno;
-            std::cerr << "Could not send data to the server. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-            return;
+            std::cerr << "Could not send data to the end point. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+            return false;
         }
         remainingBytesToSend -= bytesSent;
         buffer += bytesSent;
     }
+
+    return true;
 }
 
 #endif

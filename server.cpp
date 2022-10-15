@@ -6,9 +6,16 @@ static void runAcceptedClient(int* paramSocket)
     char clientBuffer[BUFFER_SIZE];
     memset(clientBuffer, 0, sizeof (clientBuffer));
 
-    readMessage(socketClient, clientBuffer);
+    if (!readMessage(socketClient, clientBuffer))
+    {
+        return;
+    }
     printf("Cadena total recibida = %s\n", clientBuffer);
-    writeMessage(socketClient, clientBuffer);
+    std::this_thread::sleep_for(std::chrono::seconds(8));
+    if (!writeMessage(socketClient, clientBuffer))
+    {
+        return;
+    }
     close(socketClient);
 }
 
@@ -64,7 +71,7 @@ static void socketServer()
             std::cerr << "Could not accept on the socket descriptor. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
             return;
         }
-        
+
         std::thread(runAcceptedClient, &socketClientDescriptor).detach();
     }
 }
