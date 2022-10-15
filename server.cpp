@@ -9,6 +9,7 @@ static void runAcceptedClient(int* paramSocket)
     readMessage(socketClient, clientBuffer);
     printf("Cadena total recibida = %s\n", clientBuffer);
     writeMessage(socketClient, clientBuffer);
+    close(socketClient);
 }
 
 static void socketServer()
@@ -64,9 +65,7 @@ static void socketServer()
             return;
         }
         
-        std::thread threadClient(runAcceptedClient, &socketClientDescriptor);
-        threadClient.join();
-        close(socketClientDescriptor);
+        std::thread(runAcceptedClient, &socketClientDescriptor).detach();
     }
 }
 
