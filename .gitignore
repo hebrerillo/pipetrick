@@ -7,4 +7,5 @@ misc/
 client
 server
 *.o
+.project
 
