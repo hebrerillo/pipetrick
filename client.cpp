@@ -1,32 +1,9 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include "common.h"
-#define DEFAULT_TIME_OUT_SECONDS 3
+#define DEFAULT_TIME_OUT_SECONDS 7
 
 static int socketDescriptor;
-
-bool makeSocketNonBlocking(int socketDescriptor)
-{
-    int errorNumber;
-    int flags = fcntl(socketDescriptor, F_GETFL, 0);
-    if (flags == -1)
-    {
-        errorNumber = errno;
-        std::cerr << "Could not get the flags of the socket descriptor. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return false;
-    }
-
-    flags = (flags | O_NONBLOCK);
-
-    if (fcntl(socketDescriptor, F_SETFL, flags) == -1)
-    {
-        errorNumber = errno;
-        std::cerr << "Could not set socket to non-blocking. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return false;
-    }
-
-    return true;
-}
 
 void socketClient(const char *serverIP = DEFAULT_SERVER_ADDRESS)
 {
@@ -36,16 +13,11 @@ void socketClient(const char *serverIP = DEFAULT_SERVER_ADDRESS)
     memset(message, 0, sizeof(message));
     strcpy(message, "hola server guapo");
 
-    socketDescriptor = socket(AF_INET, SOCK_STREAM, 0);
+    socketDescriptor = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (socketDescriptor == -1)
     {
         errorNumber = errno;
         std::cerr << "Could not create the socket server. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return;
-    }
-
-    if (!makeSocketNonBlocking(socketDescriptor))
-    {
         return;
     }
 
