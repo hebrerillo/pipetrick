@@ -10,8 +10,12 @@ static void runAcceptedClient(int* paramSocket)
     {
         return;
     }
-    printf("Cadena total recibida = %s\n", clientBuffer);
-    std::this_thread::sleep_for(std::chrono::seconds(12));
+    
+    int sleepingTime = atoi(clientBuffer);
+    
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleepingTime));
+    strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
+
     if (!writeMessage(socketClient, clientBuffer))
     {
         return;

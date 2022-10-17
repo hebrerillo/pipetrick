@@ -6,13 +6,13 @@
 static int socketDescriptor;
 static int pfd[2];
 
-void socketClient(const char *serverIP = DEFAULT_SERVER_ADDRESS)
+void socketClient(const char *serverIP = DEFAULT_SERVER_ADDRESS, const char* serverDelay = "1000")
 {
     int errorNumber;
     char message[BUFFER_SIZE];
     struct sockaddr_in serverAddress;
     memset(message, 0, sizeof(message));
-    strcpy(message, "hola server guapo");
+    strcpy(message, serverDelay);
 
     socketDescriptor = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (socketDescriptor == -1)
@@ -124,18 +124,17 @@ void socketClient(const char *serverIP = DEFAULT_SERVER_ADDRESS)
     close(socketDescriptor);
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-
     if (pipe2(pfd, O_NONBLOCK) == -1)
     {
         std::cerr << "select failed when trying to read from the server. Error code " << errno << ": " << strerror(errno) << std::endl;
         return 0;
     }
 
-    std::thread threadClient(socketClient, "127.0.0.1");
-    std::this_thread::sleep_for(std::chrono::milliseconds(1200));
-    write(pfd[1], "0", 1);
+    std::thread threadClient(socketClient, "127.0.0.1", argv[1]);
+    //std::this_thread::sleep_for(std::chrono::milliseconds(1200));
+    //write(pfd[1], "0", 1);
     threadClient.join();
 
     close(pfd[0]);
