@@ -11,7 +11,7 @@ static void runAcceptedClient(int* paramSocket)
         return;
     }
     printf("Cadena total recibida = %s\n", clientBuffer);
-    std::this_thread::sleep_for(std::chrono::seconds(10));
+    std::this_thread::sleep_for(std::chrono::seconds(12));
     if (!writeMessage(socketClient, clientBuffer))
     {
         return;
@@ -64,6 +64,7 @@ static void socketServer()
         struct sockaddr_in clientAddress;
         int sizeofSockAddr = sizeof (struct sockaddr_in);
 
+        std::this_thread::sleep_for(std::chrono::seconds(2));
         int socketClientDescriptor = accept(socketDescriptor, (struct sockaddr *) &clientAddress, (socklen_t*) & sizeofSockAddr);
         if (socketClientDescriptor == -1)
         {
