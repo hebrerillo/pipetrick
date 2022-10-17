@@ -11,7 +11,7 @@ static void runAcceptedClient(int* paramSocket)
         return;
     }
     printf("Cadena total recibida = %s\n", clientBuffer);
-    std::this_thread::sleep_for(std::chrono::seconds(15));
+    std::this_thread::sleep_for(std::chrono::seconds(5));
     if (!writeMessage(socketClient, clientBuffer))
     {
         return;
@@ -45,7 +45,6 @@ static void socketServer()
     socketAddress.sin_family = AF_INET;
     socketAddress.sin_addr.s_addr = INADDR_ANY;
     socketAddress.sin_port = htons(PORT);
-
     if (bind(socketDescriptor, (struct sockaddr *) &socketAddress, sizeof (socketAddress)) == -1)
     {
         errorNumber = errno;

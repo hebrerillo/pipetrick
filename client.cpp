@@ -1,7 +1,7 @@
 #include <arpa/inet.h>
 #include <fcntl.h>
 #include "common.h"
-#define DEFAULT_TIME_OUT_SECONDS 15
+#define DEFAULT_TIME_OUT_SECONDS 3
 
 static int socketDescriptor;
 
@@ -72,6 +72,14 @@ void socketClient(const char *serverIP = DEFAULT_SERVER_ADDRESS)
     FD_SET(socketDescriptor, &writeFds);
 
     int retValue = select(socketDescriptor + 1, NULL, &writeFds, NULL, &timeOut);
+
+    if (retValue == 0)
+    {
+        std::cerr << "Time out expired when waiting to connect to the server." << std::endl;
+        close(socketDescriptor);
+        return;
+    }
+
     if (retValue == -1)
     {
         errorNumber = errno;
