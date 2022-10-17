@@ -4,6 +4,9 @@
 #include "common.h"
 #define DEFAULT_TIME_OUT_MSECONDS 4000000
 
+namespace pipetrick
+{
+
 const char* Client::DEFAULT_IP = "127.0.0.1";
 const int Client::DEFAULT_PORT = 8080;
 const std::chrono::milliseconds Client::DEFAULT_DELAY = std::chrono::milliseconds(1000);
@@ -202,9 +205,11 @@ Client::~Client()
     close(pipeDescriptors_[1]);
 }
 
+}
+
 int main(int argc, char* argv[])
 {
-    Client client;
+    pipetrick::Client client;
 
     std::thread threadClient([&client]()
     {

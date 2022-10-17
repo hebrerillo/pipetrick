@@ -6,6 +6,8 @@
 #include <atomic>
 #include <condition_variable>
 
+namespace pipetrick
+{
 class Client
 {
 public:
@@ -20,6 +22,7 @@ public:
      */
     Client();
 
+    //TODO dock
     bool sendDelayToServer(const std::chrono::milliseconds& serverDelay = DEFAULT_DELAY, const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
 
     /**
@@ -70,5 +73,6 @@ private:
     std::atomic<bool> isRunning_; //True if there is a pending connection, false otherwise.
     std::condition_variable quitCV_; //To notify to the main that there are no pending connections.
 };
+}
 
 #endif
