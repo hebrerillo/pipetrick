@@ -14,14 +14,14 @@ TARGETS = server client
 
 all:  $(TARGETS)
 
-server: server.o
+server: server.o common.o
 	$(CC) -o server $^ $(LFLAGS)	
 
 server.o: server.cpp common.h
 	$(CC) $(CFLAGS) -c $^
 
 
-client: client.o
+client: client.o common.o
 	$(CC) -o client $^ $(LFLAGS)	
 
 client.o: client.cpp common.h

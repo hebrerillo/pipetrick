@@ -12,8 +12,10 @@ const int Client::DEFAULT_PORT = 8080;
 const std::chrono::milliseconds Client::DEFAULT_DELAY = std::chrono::milliseconds(1000);
 const std::chrono::milliseconds Client::MAXIMUM_WAITING_TIME_FOR_FLAG = std::chrono::milliseconds(2000);
 
-Client::Client()
-: isRunning_(false)
+Client::Client(const char* serverIP, int port)
+: serverIP_(serverIP)
+, serverPort_(port) 
+, isRunning_(false)
 {
     int errorNumber;
     if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
@@ -64,12 +66,12 @@ void Client::closeSocketAndNotify()
     quitCV_.notify_one();
 }
 
-bool Client::connectToServer(const char* serverIP, int port)
+bool Client::connectToServer()
 {
     struct sockaddr_in serverAddress;
-    serverAddress.sin_addr.s_addr = inet_addr(serverIP);
+    serverAddress.sin_addr.s_addr = inet_addr(serverIP_.c_str());
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(port);
+    serverAddress.sin_port = htons(serverPort_);
     int errorNumber;
 
     if (connect(socketDescriptor_, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) == -1)
@@ -106,7 +108,7 @@ bool Client::consumePipe() const
     return true;
 }
 
-bool Client::sendDelayToServer(const std::chrono::milliseconds& serverDelay, const char* serverIP, int port)
+bool Client::sendDelayToServer(const std::chrono::milliseconds& serverDelay)
 {
     char message[BUFFER_SIZE];
     fd_set writeFds;
@@ -117,7 +119,7 @@ bool Client::sendDelayToServer(const std::chrono::milliseconds& serverDelay, con
 
     isRunning_.exchange(true);
 
-    if (!createSocket() || !connectToServer(serverIP, port))
+    if (!createSocket() || !connectToServer())
     {
         closeSocketAndNotify();//TODO check if this is a problem.
         return false;
@@ -152,7 +154,7 @@ bool Client::sendDelayToServer(const std::chrono::milliseconds& serverDelay, con
     {
         memset(message, 0, sizeof(message));
         strcpy(message, std::to_string(serverDelay.count()).c_str());
-        if (!writeMessage(socketDescriptor_, message))
+        if (!Common::writeMessage(socketDescriptor_, message))
         {
             closeSocketAndNotify();
             return false;
@@ -188,7 +190,7 @@ bool Client::sendDelayToServer(const std::chrono::milliseconds& serverDelay, con
     else if (FD_ISSET(socketDescriptor_, &readFds))
     {
         memset(message, 0, sizeof(message));
-        if (!readMessage(socketDescriptor_, message))
+        if (!Common::readMessage(socketDescriptor_, message))
         {
             closeSocketAndNotify();
             return false;

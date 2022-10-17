@@ -20,10 +20,10 @@ public:
      * Constructor.
      * Creates the pipe file descriptors for 'pipeDescriptors_'.
      */
-    Client();
+    Client(const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
 
     //TODO dock
-    bool sendDelayToServer(const std::chrono::milliseconds& serverDelay = DEFAULT_DELAY, const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
+    bool sendDelayToServer(const std::chrono::milliseconds& serverDelay = DEFAULT_DELAY);
 
     /**
      * Quits any pending connection by a previous call to 'sendDelayToServer' by using the self pipe trick.
@@ -47,13 +47,11 @@ private:
     bool createSocket();
 
     /**
-     * Performs a connection operation on 'socketDescriptor_'.
+     * Performs a connection operation to 'serverIP_' on port 'serverPort_'.
      *
-     * @param[in] serverIP The IP address of the remote server.
-     * @param[in] port The port where the remote server is listening to connections.
      * @return true if the connection operation was succesfull, false otherwise.
      */
-    bool connectToServer(const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
+    bool connectToServer();
 
     /**
      * Consumes all the pending data in the read end pipe 'pipeDescriptors_[0]'.
@@ -67,6 +65,8 @@ private:
      */
     void closeSocketAndNotify();
 
+    std::string serverIP_;
+    int serverPort_;
     int socketDescriptor_;
     int pipeDescriptors_[2]; //The file descriptors involved in the 'Self pipe trick'
     std::mutex mutex_;

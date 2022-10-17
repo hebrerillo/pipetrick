@@ -6,7 +6,7 @@ static void runAcceptedClient(int* paramSocket)
     char clientBuffer[BUFFER_SIZE];
     memset(clientBuffer, 0, sizeof (clientBuffer));
 
-    if (!readMessage(socketClient, clientBuffer))
+    if (!pipetrick::Common::readMessage(socketClient, clientBuffer))
     {
         return;
     }
@@ -16,7 +16,7 @@ static void runAcceptedClient(int* paramSocket)
     std::this_thread::sleep_for(std::chrono::milliseconds(sleepingTime));
     strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
 
-    if (!writeMessage(socketClient, clientBuffer))
+    if (!pipetrick::Common::writeMessage(socketClient, clientBuffer))
     {
         return;
     }
