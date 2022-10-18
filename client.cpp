@@ -2,7 +2,6 @@
 #include <fcntl.h>
 #include "client.h"
 #include "common.h"
-#define DEFAULT_TIME_OUT_MSECONDS 4000000
 
 namespace pipetrick
 {
@@ -11,9 +10,13 @@ const char *Client::DEFAULT_IP = "127.0.0.1";
 const int Client::DEFAULT_PORT = 8080;
 const std::chrono::milliseconds Client::DEFAULT_DELAY = std::chrono::milliseconds(1000);
 const std::chrono::milliseconds Client::MAXIMUM_WAITING_TIME_FOR_FLAG = std::chrono::milliseconds(2000);
+const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseconds(5 * 1000 * 1000);
 
-Client::Client(const char *serverIP, int port) :
-        serverIP_(serverIP), serverPort_(port), isRunning_(false)
+Client::Client(const char *serverIP, int port, const std::chrono::microseconds& timeOut)
+:serverIP_(serverIP)
+, serverPort_(port)
+, isRunning_(false)
+, timeOut_(timeOut)
 {
     int errorNumber;
     if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
@@ -110,7 +113,6 @@ bool Client::sendDelayToServer(const std::chrono::milliseconds &serverDelay)
     fd_set writeFds;
     fd_set readFds;
 
-    std::chrono::microseconds timeOut(DEFAULT_TIME_OUT_MSECONDS);
     isRunning_.exchange(true);
 
     if (!createSocket() || !connectToServer())
@@ -127,7 +129,7 @@ bool Client::sendDelayToServer(const std::chrono::milliseconds &serverDelay)
     FD_ZERO(&writeFds);
     FD_SET(socketDescriptor_, &writeFds);
 
-    if (!Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut))
+    if (!Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_))
     {
         closeSocketAndNotify();
         return false;
@@ -154,7 +156,7 @@ bool Client::sendDelayToServer(const std::chrono::milliseconds &serverDelay)
     FD_SET(socketDescriptor_, &readFds);
     FD_SET(pipeDescriptors_[0], &readFds);
 
-    if (!Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut))
+    if (!Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_))
     {
         closeSocketAndNotify();
         return false;
@@ -194,7 +196,7 @@ int main(int argc, char *argv[])
 
     std::thread threadClient([&client]()
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(2200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(12200));
         client.stop();
     });
 

@@ -15,12 +15,13 @@ public:
     static const int DEFAULT_PORT;
     static const std::chrono::milliseconds DEFAULT_DELAY;
     static const std::chrono::milliseconds MAXIMUM_WAITING_TIME_FOR_FLAG; //The maximum waiting time for the flag 'isRunning_' to be cleared.
+    static const std::chrono::microseconds DEFAULT_TIMEOUT;
 
     /**
      * Constructor.
      * Creates the pipe file descriptors for 'pipeDescriptors_'.
      */
-    Client(const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
+    Client(const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT, const std::chrono::microseconds& timeOut = DEFAULT_TIMEOUT);
 
     //TODO dock
     bool sendDelayToServer(const std::chrono::milliseconds& serverDelay = DEFAULT_DELAY);
@@ -70,6 +71,7 @@ private:
     std::mutex mutex_;
     std::atomic<bool> isRunning_; //True if there is a pending connection, false otherwise.
     std::condition_variable quitCV_; //To notify to the main that there are no pending connections.
+    std::chrono::microseconds timeOut_; //The maximum time to wait for socket operations to complete.
 };
 }
 
