@@ -107,7 +107,7 @@ void Client::consumePipe() const
     }
 }
 
-bool Client::sendDelayToServer(const std::chrono::milliseconds &serverDelay)
+bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDelay)
 {
     char message[BUFFER_SIZE];
     fd_set writeFds;
@@ -200,7 +200,7 @@ int main(int argc, char *argv[])
         client.stop();
     });
 
-    client.sendDelayToServer(std::chrono::milliseconds(atoi(argv[1])));
+    client.sendDelayToServerAndWait(std::chrono::milliseconds(atoi(argv[1])));
 
     threadClient.join();
 

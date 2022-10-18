@@ -20,11 +20,24 @@ public:
     /**
      * Constructor.
      * Creates the pipe file descriptors for 'pipeDescriptors_'.
+     *
+     * @param[in] serverIP The IP address of the remote server.
+     * @param[in] port The port where the remote server is listening to connections.
+     * @param[in] timeOut The time out to wait for socket operations.
      */
     Client(const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT, const std::chrono::microseconds& timeOut = DEFAULT_TIMEOUT);
 
-    //TODO dock
-    bool sendDelayToServer(const std::chrono::milliseconds& serverDelay = DEFAULT_DELAY);
+    /**
+     * Sends a delay 'serverDelay' to the server, so the server will sleep 'serverDelay' milliseconds before answering back.
+     * This call blocks until :
+     * - The server answers back.
+     * - The time out 'timeOut_' expires.
+     * - A call to 'stop' is performed.
+     *
+     * @param[in] serverDelay The amount of time that the server will sleep before answering back to this client.
+     * @return true if this client had a response from the server, false if the time out expired, a call to 'stop' was performed while waiting or an error occurred.
+     */
+    bool sendDelayToServerAndWait(const std::chrono::milliseconds& serverDelay = DEFAULT_DELAY);
 
     /**
      * Quits any pending connection by a previous call to 'sendDelayToServer' by using the self pipe trick.
