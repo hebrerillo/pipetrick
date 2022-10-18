@@ -3,7 +3,20 @@
 namespace pipetrick
 {
 
-bool Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd_set *writeFds, const std::chrono::microseconds* timeOut)
+bool Common::createSocket(int &socketDescriptor, int flags)
+{
+    socketDescriptor = socket(AF_INET, SOCK_STREAM | flags, 0);
+    if (socketDescriptor == -1)
+    {
+        int errorNumber = errno;
+        std::cerr << "Could not create the socket. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
+bool Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd_set *writeFds, const std::chrono::microseconds *timeOut)
 {
     struct timeval timeOutSelect;
     timeOutSelect.tv_sec = 0;

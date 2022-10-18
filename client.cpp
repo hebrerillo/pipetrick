@@ -26,19 +26,6 @@ Client::Client(const char *serverIP, int port, const std::chrono::microseconds& 
     }
 }
 
-bool Client::createSocket()
-{
-    socketDescriptor_ = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
-    if (socketDescriptor_ == -1)
-    {
-        int errorNumber = errno;
-        std::cerr << "Could not create the socket server. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return false;
-    }
-
-    return true;
-}
-
 void Client::stop()
 {
     std::unique_lock < std::mutex > lock(mutex_);
@@ -115,7 +102,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     isRunning_.exchange(true);
 
-    if (!createSocket() || !connectToServer())
+    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK) || !connectToServer())
     {
         closeSocketAndNotify();
         return false;

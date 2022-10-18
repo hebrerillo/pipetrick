@@ -54,13 +54,6 @@ public:
 private:
 
     /**
-     * Creates a non-blocking socket on the file descriptor 'socketDescriptor_'.
-     *
-     * @return true if the socket was created successfully, false otherwise.
-     */
-    bool createSocket();
-
-    /**
      * Performs a connection operation to 'serverIP_' on port 'serverPort_'.
      *
      * @return true if the connection operation was succesfull, false otherwise.

@@ -26,6 +26,15 @@ class Common
 public:
 
     /**
+     * Creates a socket on 'socketDescriptor' with additional flags
+     *
+     * @param[out] socketDescriptor The new socket descriptor.
+     * @param[in] Additional flags to the 'socket' call.
+     * @return true if the socket was created successfully, false if the 'socket' call failed.
+     */
+    static bool createSocket(int& socketDescriptor, int flags);
+
+    /**
      * Reads a message of size BUFFER_SIZE on the file descriptor 'socketDescriptor'.
      *
      * @param[in] socketDescriptor
