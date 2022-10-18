@@ -26,18 +26,24 @@ class Common
 public:
 
     /**
+     * Reads a message of size BUFFER_SIZE on the file descriptor 'socketDescriptor'.
      *
+     * @param[in] socketDescriptor
+     * @param[out] buffer
+     * @return true if the read operation was successful, false otherwise
      */
     static bool readMessage(int socketDescriptor, char buffer[BUFFER_SIZE]);
 
     /**
+     * Writes a message of size BUFFER_SIZE on the file descriptor 'socketDescriptor'.
      *
+     * @param[in] socketDescriptor
+     * @param[out] buffer
+     * @return true if the write operation was successful, false otherwise
      */
     static bool writeMessage(int socketDescriptor, char message[BUFFER_SIZE]);
 };
 
 }
-
-
 
 #endif
