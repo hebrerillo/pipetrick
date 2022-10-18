@@ -19,7 +19,7 @@ namespace pipetrick
 {
 
 /**
- * Class with some properties and methods shared between server and client.
+ * Class with helper methods shared between server and client.
  */
 class Common
 {
@@ -42,6 +42,17 @@ public:
      * @return true if the write operation was successful, false otherwise
      */
     static bool writeMessage(int socketDescriptor, char message[BUFFER_SIZE]);
+
+    /**
+     * Performs a select operation on the file descriptors set in 'readFds' and 'writeFds', with a time out.
+     *
+     * @param[in] maxFileDescriptor The highest-numbered file descriptor in 'readFds' and 'writeFds'.
+     * @param[in/out] readFds The file descriptors that will be watched for read operations.
+     * @param[in/out] writeFds The file descriptors that will be watched for write operations.
+     * @param[in] timeOut The time out for the select operation.
+     * @return true if there is a file descriptor that is ready to be read and/or write, false if the time out expired or if the select call failed.
+     */
+    static bool doSelect(int maxFileDescriptor, fd_set* readFds, fd_set* writeFds, const std::chrono::microseconds* timeOut = nullptr);
 };
 
 }

@@ -55,10 +55,8 @@ private:
 
     /**
      * Consumes all the pending data in the read end pipe 'pipeDescriptors_[0]'.
-     *
-     * @return true if the reading operation is successful, false otherwise.
      */
-    bool consumePipe() const;
+    void consumePipe() const;
     
     /**
      * Close the socket descriptor 'socketDescriptor_' and clears the flag 'isRunning_' to notify on threads waiting on 'quitCV_'.

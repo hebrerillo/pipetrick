@@ -3,6 +3,36 @@
 namespace pipetrick
 {
 
+bool Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd_set *writeFds, const std::chrono::microseconds* timeOut)
+{
+    struct timeval timeOutSelect;
+    timeOutSelect.tv_sec = 0;
+    timeOutSelect.tv_usec = timeOut->count();
+
+    if (!readFds && !writeFds)
+    {
+        std::cout << "No write or read file descriptors were provided." << std::endl;
+        return false;
+    }
+
+    int retValue = select(maxFileDescriptor, readFds, writeFds, NULL, &timeOutSelect);
+
+    if (retValue == -1)
+    {
+        int errorNumber = errno;
+        std::cerr << "select failed. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        return false;
+    }
+
+    if (retValue == 0)
+    {
+        std::cerr << "Time out expired" << std::endl;
+        return false;
+    }
+
+    return true;
+}
+
 bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
 {
     bool keepReading = true;
@@ -10,7 +40,7 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
     size_t bufferPosition = 0;
     memset(buffer, 0, BUFFER_SIZE);
 
-    while(keepReading)
+    while (keepReading)
     {
         ssize_t bytes = read(socketDescriptor, buffer + bufferPosition, BUFFER_SIZE);
         if (bytes == 0)
@@ -49,7 +79,7 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
 
 bool Common::writeMessage(int socketDescriptor, char message[BUFFER_SIZE])
 {
-    char* buffer = message;
+    char *buffer = message;
     int errorNumber;
     ssize_t remainingBytesToSend = BUFFER_SIZE;
 
