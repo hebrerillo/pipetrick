@@ -117,7 +117,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     if (!createSocket() || !connectToServer())
     {
-        closeSocketAndNotify(); //TODO check if this is a problem.
+        closeSocketAndNotify();
         return false;
     }
 
