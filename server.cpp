@@ -1,18 +1,26 @@
+#include "server.h"
 #include "common.h"
 
-static void runAcceptedClient(int* paramSocket)
+namespace pipetrick
 {
-    int socketClient = *paramSocket;
+
+Server::Server(size_t maxClients) :
+        maxNumberClients_(maxClients), currentNumberClients_(0)
+{}
+
+void Server::runClient(int *socketDescriptor)
+{
+    int socketClient = *socketDescriptor;
     char clientBuffer[BUFFER_SIZE];
-    memset(clientBuffer, 0, sizeof (clientBuffer));
+    memset(clientBuffer, 0, sizeof(clientBuffer));
 
     if (!pipetrick::Common::readMessage(socketClient, clientBuffer))
     {
         return;
     }
-    
+
     int sleepingTime = atoi(clientBuffer);
-    
+
     std::this_thread::sleep_for(std::chrono::milliseconds(sleepingTime));
     strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
 
@@ -24,65 +32,80 @@ static void runAcceptedClient(int* paramSocket)
     close(socketClient);
 }
 
-static void socketServer()
+bool Server::bind(int port)
 {
-    int socketDescriptor = socket(AF_INET, SOCK_STREAM, 0);
-    int errorNumber = 0;
-    int socketReuseOption = 1;
     struct sockaddr_in socketAddress;
-    const int LISTEN_BACKLOG = 1;
-
-    if (socketDescriptor == -1)
-    {
-        errorNumber = errno;
-        std::cerr << "Could not create the socket server. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return;
-    }
-
-    if (setsockopt(socketDescriptor, SOL_SOCKET, SO_REUSEADDR, &socketReuseOption, sizeof (int)) == -1)
-    {
-        errorNumber = errno;
-        std::cerr << "Could not reuse the socket descriptor. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return;
-    }
-
     socketAddress.sin_family = AF_INET;
     socketAddress.sin_addr.s_addr = INADDR_ANY;
-    socketAddress.sin_port = htons(PORT);
-    if (bind(socketDescriptor, (struct sockaddr *) &socketAddress, sizeof (socketAddress)) == -1)
+    socketAddress.sin_port = htons(port);
+    if (::bind(serverSocketDescriptor_, (struct sockaddr*) &socketAddress, sizeof(socketAddress)) == -1)
     {
-        errorNumber = errno;
+        int errorNumber = errno;
         std::cerr << "Could not bind to socket address. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return;
+        return false;
     }
 
-    if (listen(socketDescriptor, LISTEN_BACKLOG) == -1)
+    return true;
+}
+
+bool Server::start(int port)
+{
+    const int LISTEN_BACKLOG = 1;
+
+    if (!Common::createSocket(serverSocketDescriptor_))
     {
-        errorNumber = errno;
-        std::cerr << "Could not listen to socket. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return;
+        return false;
     }
 
-    while(1)
+    int socketReuseOption = 1;
+    if (setsockopt(serverSocketDescriptor_, SOL_SOCKET, SO_REUSEADDR, &socketReuseOption, sizeof(int)) == -1)
+    {
+        int errorNumber = errno;
+        std::cerr << "Could not reuse the socket descriptor. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        return false;
+    }
+
+    if (!bind(port))
+    {
+        return false;
+    }
+
+    if (listen(serverSocketDescriptor_, LISTEN_BACKLOG) == -1)
+    {
+        int errorNumber = errno;
+        std::cerr << "Could not listen to socket. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        return false;
+    }
+
+    serverThread_ = std::thread(&Server::run, this);
+    return true;
+}
+
+void Server::run()
+{
+    while (1)
     {
         struct sockaddr_in clientAddress;
-        int sizeofSockAddr = sizeof (struct sockaddr_in);
+        int sizeofSockAddr = sizeof(struct sockaddr_in);
 
-        std::this_thread::sleep_for(std::chrono::seconds(2));
-        int socketClientDescriptor = accept(socketDescriptor, (struct sockaddr *) &clientAddress, (socklen_t*) & sizeofSockAddr);
+        int socketClientDescriptor = accept(serverSocketDescriptor_, (struct sockaddr*) &clientAddress, (socklen_t*) &sizeofSockAddr);
         if (socketClientDescriptor == -1)
         {
-            errorNumber = errno;
+            int errorNumber = errno;
             std::cerr << "Could not accept on the socket descriptor. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
             return;
         }
 
-        std::thread(runAcceptedClient, &socketClientDescriptor).detach();
+        std::thread(&Server::runClient, this, &socketClientDescriptor).detach();
     }
+}
+
 }
 
 int main()
 {
-    socketServer();
+    pipetrick::Server server(90);
+    server.start(8080);
+    std::this_thread::sleep_for(std::chrono::seconds(90000));
     return 0;
 }

@@ -12,8 +12,6 @@
 #include <chrono>
 
 #define BUFFER_SIZE 1024
-#define PORT 8080
-#define DEFAULT_SERVER_ADDRESS "127.0.0.1"
 
 namespace pipetrick
 {
@@ -32,7 +30,7 @@ public:
      * @param[in] Additional flags to the 'socket' call.
      * @return true if the socket was created successfully, false if the 'socket' call failed.
      */
-    static bool createSocket(int& socketDescriptor, int flags);
+    static bool createSocket(int& socketDescriptor, int flags = 0);
 
     /**
      * Reads a message of size BUFFER_SIZE on the file descriptor 'socketDescriptor'.
