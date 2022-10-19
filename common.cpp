@@ -1,4 +1,5 @@
 #include "common.h"
+#include "log.h"
 
 namespace pipetrick
 {
@@ -9,7 +10,7 @@ bool Common::createSocket(int &socketDescriptor, int flags)
     if (socketDescriptor == -1)
     {
         int errorNumber = errno;
-        std::cerr << "Could not create the socket. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        Log::logError("Could not create the socket", errorNumber);
         return false;
     }
 
@@ -21,7 +22,7 @@ Common::SelectResult Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd
 
     if (!readFds && !writeFds)
     {
-        std::cout << "No write or read file descriptors were provided." << std::endl;
+        Log::logError("No write or read file descriptors were provided.");
         return SelectResult::ERROR;
     }
 
@@ -41,13 +42,13 @@ Common::SelectResult Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd
     if (retValue == -1)
     {
         int errorNumber = errno;
-        std::cerr << "select failed. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        Log::logError("Select failed", errorNumber);
         return SelectResult::ERROR;
     }
 
     if (retValue == 0)
     {
-        std::cerr << "Time out expired" << std::endl;
+        Log::logError("Time out expired");
         return SelectResult::TIMEOUT;
     }
 
@@ -63,9 +64,7 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
 
     while (keepReading)
     {
-        std::cout << "Before reading " << std::endl;
         ssize_t bytes = read(socketDescriptor, buffer + bufferPosition, BUFFER_SIZE);
-        std::cout << "after reading " << std::endl;
         if (bytes == 0)
         {
             keepReading = 0;
@@ -75,11 +74,11 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
             errorNumber = errno;
             if (errorNumber == EAGAIN || errorNumber == EWOULDBLOCK)
             {
-                std::cerr << "Reached time out when reading from the end point. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+                Log::logError("Reached time out when reading from the end point", errorNumber);
             }
             else
             {
-                std::cerr << "Could not read data from the end point. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+                Log::logError("Could not read data from the end point", errorNumber);
             }
             keepReading = 0;
             return false;
@@ -88,12 +87,10 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
         {
             bufferPosition += bytes;
             keepReading = 1;
-            printf("Fragmentation. Bytes leídos = %ld, bufferPosition = %ld \n", bytes, bufferPosition);
         }
         else
         {
             keepReading = 0;
-            printf("All read at once\n %s\n", buffer);
         }
     }
 
@@ -112,7 +109,7 @@ bool Common::writeMessage(int socketDescriptor, char message[BUFFER_SIZE])
         if (bytesSent <= 0)
         {
             errorNumber = errno;
-            std::cerr << "Could not send data to the end point. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+            Log::logError("Could not send data to the end point", errorNumber);
             return false;
         }
         remainingBytesToSend -= bytesSent;
@@ -133,7 +130,7 @@ void Common::consumePipe(int pipeReadEnd)
             int errorNumber = errno;
             if (errorNumber != EAGAIN)
             {
-                std::cerr << "Error reading all bytes from the pipe. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+                Log::logError("Error reading all bytes from the pipe", errorNumber);
                 return;
             }
             done = true;
