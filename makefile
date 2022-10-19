@@ -1,7 +1,8 @@
 CC     = g++
 CFLAGS = -DVERBOSE_LOGIN -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-variable -g -std=c++0x
 LFLAGS = -pthread
-TARGETS = server client
+GTEST_LIB = lib/libgtest.a
+TARGETS = main test
 
 %.o: %.cpp %.h
 	$(CC) -c $(CFLAGS) $< -o $@
@@ -12,21 +13,26 @@ TARGETS = server client
 %.o: %.c
 	$(CC) -c $(CFLAGS) $< -o $@
 
-all:  $(TARGETS)
+all:  $(TARGETS)	
 
-server: server.o common.o log.o
-	$(CC) -o server $^ $(LFLAGS)	
+server.o: server.cpp server.h log.h common.h
+	$(CC) $(CFLAGS) -c $^	
 
-server.o: server.cpp common.h
-	$(CC) $(CFLAGS) -c $^
-
-
-client: client.o common.o log.o
-	$(CC) -o client $^ $(LFLAGS)	
-
-client.o: client.cpp common.h
+client.o: client.cpp client.h log.h common.h
 	$(CC) $(CFLAGS) -c $^
 	
+main: main.o server.o client.o log.o common.o
+	$(CC) -o main $^ $(LFLAGS)
+	
+main.o: main.cpp server.h client.h log.h
+	$(CC) $(CFLAGS) -c $^
+
+test: test.o server.o client.o log.o common.o
+	$(CC) -o test $^ $(LFLAGS) $(GTEST_LIB)
+
+test.o: test.cpp test.h server.h client.h
+	$(CC) $(CFLAGS) -c $^
+
 clean:
-	-rm *.o core* *.gch $(TARGETS)
+	-rm *.o core* *.gch main test $(TARGETS)
 	

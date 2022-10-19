@@ -4,7 +4,7 @@
 namespace pipetrick
 {
 
-const std::chrono::milliseconds Server::MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH = std::chrono::milliseconds(2000);
+const std::chrono::milliseconds Server::MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH = std::chrono::milliseconds(20000);
 
 Server::Server(size_t maxClients) :
         maxNumberClients_(maxClients), currentNumberClients_(0), isRunning_(false), quitSignal_(true)
@@ -28,7 +28,7 @@ void Server::closeClientAndNotify(int socketClientDescriptor)
     std::unique_lock < std::mutex > lock(mutex_);
     close(socketClientDescriptor);
     currentNumberClients_--;
-    clientsCV_.notify_one();
+    clientsCV_.notify_all();
 }
 
 bool Server::sleep(char clientBuffer[BUFFER_SIZE])
@@ -148,7 +148,7 @@ void Server::stop()
     std::unique_lock < std::mutex > lock(mutex_);
     write(pipeDescriptors_[1], "0", 1);
     quitSignal_.exchange(true);
-    clientsCV_.notify_one();
+    clientsCV_.notify_all();
 
     auto quitPredicate = [this]()
     {
@@ -218,13 +218,13 @@ void Server::waitForClientsToFinish()
         return currentNumberClients_ == 0;
     };
 
-    if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, clientsToFinishPredicate))
+    if (currentNumberClients_ > 0 && !clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, clientsToFinishPredicate))
     {
         Log::logError("Server::waitForClientsToFinish  - Time out expired when waiting for all the clients to finish!!!");
     }
 
     isRunning_.exchange(false);
-    clientsCV_.notify_one();
+    clientsCV_.notify_all();
 }
 
 void Server::run()
