@@ -1,5 +1,5 @@
 CC     = g++
-CFLAGS = -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-variable -g -std=c++0x
+CFLAGS = -DVERBOSE_LOGIN -Wall -Werror -Wextra -Wno-unused-parameter -Wno-unused-variable -g -std=c++0x
 LFLAGS = -pthread
 TARGETS = server client
 
@@ -14,19 +14,19 @@ TARGETS = server client
 
 all:  $(TARGETS)
 
-server: server.o common.o
+server: server.o common.o log.o
 	$(CC) -o server $^ $(LFLAGS)	
 
 server.o: server.cpp common.h
 	$(CC) $(CFLAGS) -c $^
 
 
-client: client.o common.o
+client: client.o common.o log.o
 	$(CC) -o client $^ $(LFLAGS)	
 
 client.o: client.cpp common.h
 	$(CC) $(CFLAGS) -c $^
 	
 clean:
-	-rm *.o core* $(TARGETS)
+	-rm *.o core* *.gch $(TARGETS)
 	

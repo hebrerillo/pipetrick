@@ -1,3 +1,4 @@
+#include "log.h"
 #include "client.h"
 
 namespace pipetrick
@@ -16,7 +17,7 @@ Client::Client(const char *serverIP, int port, const std::chrono::microseconds &
     if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
     {
         errorNumber = errno;
-        std::cerr << "Could not create the pipe file descriptors. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        Log::logError("Could not create the pipe file descriptors", errorNumber);
     }
 }
 
@@ -36,7 +37,7 @@ void Client::stop()
 
     if (!quitCV_.wait_for(lock, MAXIMUM_WAITING_TIME_FOR_FLAG, quitPredicate))
     {
-        std::cerr << "Time out expired when waiting for pending connections to finish!!!" << std::endl;
+        Log::logError("Time out expired when waiting for pending connections to finish!!!");
     }
 }
 
@@ -61,7 +62,7 @@ bool Client::connectToServer()
         errorNumber = errno;
         if (errorNumber != EINPROGRESS)
         {
-            std::cerr << "Could not connect to the server. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+            Log::logError("Could not connect to the server", errorNumber);
             return false;
         }
     }
@@ -99,6 +100,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
+        Log::logVerbose("Quit client in the connect operation by the self pipe trick");
         Common::consumePipe(pipeDescriptors_[0]);
         closeSocketAndNotify();
         return false;
@@ -106,7 +108,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     if (!FD_ISSET(socketDescriptor_, &writeFds))
     {
-        std::cerr << "Expected a file descriptor ready to write operations." << std::endl;
+        Log::logError("Expected a file descriptor ready to write operations.");
         closeSocketAndNotify();
         return false;
     }
@@ -131,6 +133,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
+        Log::logVerbose("Quit client in the read operation by the self pipe trick");
         Common::consumePipe(pipeDescriptors_[0]);
         closeSocketAndNotify();
         return false;
@@ -138,7 +141,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     if (!FD_ISSET(socketDescriptor_, &readFds))
     {
-        std::cerr << "Expected a file descriptor ready to read operations." << std::endl;
+        Log::logError("Expected a file descriptor ready to read operations.");
         closeSocketAndNotify();
         return false;
     }
@@ -168,7 +171,7 @@ int main(int argc, char *argv[])
 
     std::thread threadClient([&client]()
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500000));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
         client.stop();
     });
 
