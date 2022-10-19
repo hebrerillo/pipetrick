@@ -12,11 +12,8 @@ const std::chrono::milliseconds Client::DEFAULT_DELAY = std::chrono::millisecond
 const std::chrono::milliseconds Client::MAXIMUM_WAITING_TIME_FOR_FLAG = std::chrono::milliseconds(2000);
 const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseconds(5 * 1000 * 1000);
 
-Client::Client(const char *serverIP, int port, const std::chrono::microseconds& timeOut)
-:serverIP_(serverIP)
-, serverPort_(port)
-, isRunning_(false)
-, timeOut_(timeOut)
+Client::Client(const char *serverIP, int port, const std::chrono::microseconds &timeOut) :
+        serverIP_(serverIP), serverPort_(port), isRunning_(false), timeOut_(timeOut)
 {
     int errorNumber;
     if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
@@ -128,15 +125,20 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
         closeSocketAndNotify();
         return false;
     }
-    else if (FD_ISSET(socketDescriptor_, &writeFds))
+
+    if (!FD_ISSET(socketDescriptor_, &writeFds))
     {
-        memset(message, 0, sizeof(message));
-        strcpy(message, std::to_string(serverDelay.count()).c_str());
-        if (!Common::writeMessage(socketDescriptor_, message))
-        {
-            closeSocketAndNotify();
-            return false;
-        }
+        std::cerr << "Expected a file descriptor ready to write operations." << std::endl;
+        closeSocketAndNotify();
+        return false;
+    }
+
+    memset(message, 0, sizeof(message));
+    strcpy(message, std::to_string(serverDelay.count()).c_str());
+    if (!Common::writeMessage(socketDescriptor_, message))
+    {
+        closeSocketAndNotify();
+        return false;
     }
 
     FD_ZERO(&readFds);
@@ -155,14 +157,19 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
         closeSocketAndNotify();
         return false;
     }
-    else if (FD_ISSET(socketDescriptor_, &readFds))
+
+    if (!FD_ISSET(socketDescriptor_, &readFds))
     {
-        memset(message, 0, sizeof(message));
-        if (!Common::readMessage(socketDescriptor_, message))
-        {
-            closeSocketAndNotify();
-            return false;
-        }
+        std::cerr << "Expected a file descriptor ready to read operations." << std::endl;
+        closeSocketAndNotify();
+        return false;
+    }
+
+    memset(message, 0, sizeof(message));
+    if (!Common::readMessage(socketDescriptor_, message))
+    {
+        closeSocketAndNotify();
+        return false;
     }
 
     closeSocketAndNotify();
@@ -179,11 +186,11 @@ Client::~Client()
 
 int main(int argc, char *argv[])
 {
-    pipetrick::Client client;
+    pipetrick::Client client("127.0.0.1", 8080, std::chrono::microseconds(90 * 1000 * 1000));
 
     std::thread threadClient([&client]()
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(12200));
+        std::this_thread::sleep_for(std::chrono::milliseconds(1500000));
         client.stop();
     });
 
