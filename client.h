@@ -15,7 +15,6 @@ public:
     using SelectResult = Common::SelectResult;
 
     static const char* DEFAULT_IP;
-    static const int DEFAULT_PORT;
     static const std::chrono::milliseconds MAXIMUM_WAITING_TIME_FOR_FLAG; //The maximum waiting time for the flag 'isRunning_' to be cleared.
     static const std::chrono::microseconds DEFAULT_TIMEOUT;
 
@@ -27,7 +26,7 @@ public:
      * @param[in] port The port where the remote server is listening to connections.
      * @param[in] timeOut The time out to wait for socket operations.
      */
-    Client(const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT, const std::chrono::microseconds& timeOut = DEFAULT_TIMEOUT);
+    Client(const std::chrono::microseconds& timeOut = DEFAULT_TIMEOUT, const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
 
     /**
      * Sends a delay 'serverDelay' to the server, so the server will sleep 'serverDelay' milliseconds before answering back.

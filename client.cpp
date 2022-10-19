@@ -5,11 +5,10 @@ namespace pipetrick
 {
 
 const char *Client::DEFAULT_IP = "127.0.0.1";
-const int Client::DEFAULT_PORT = 8080;
 const std::chrono::milliseconds Client::MAXIMUM_WAITING_TIME_FOR_FLAG = std::chrono::milliseconds(2000);
 const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseconds(5 * 1000 * 1000);
 
-Client::Client(const char *serverIP, int port, const std::chrono::microseconds &timeOut) :
+Client::Client(const std::chrono::microseconds &timeOut, const char *serverIP, int port) :
         serverIP_(serverIP), serverPort_(port), isRunning_(false), timeOut_(timeOut)
 {
     int errorNumber;
@@ -36,7 +35,7 @@ void Client::stop()
 
     if (!quitCV_.wait_for(lock, MAXIMUM_WAITING_TIME_FOR_FLAG, quitPredicate))
     {
-        Log::logError("Time out expired when waiting for pending connections to finish!!!");
+        Log::logError("Client::stop - Time out expired when waiting for pending connections to finish!!!");
     }
 }
 
@@ -164,31 +163,4 @@ Client::~Client()
     close(pipeDescriptors_[1]);
 }
 
-}
-
-#include <vector>
-int main(int argc, char *argv[])
-{
-    std::vector<std::thread*> threadClientsPool;
-
-    for (size_t i = 0; i < 15; i++)
-    {
-        std::thread *threadClient = new std::thread([]()
-        {
-            pipetrick::Client client("127.0.0.1", 8080, std::chrono::microseconds(10 * 1000 * 1000));
-            std::chrono::milliseconds serverDelay = std::chrono::milliseconds(5 * 1000);
-            if (client.sendDelayToServerAndWait(serverDelay))
-            {
-                std::cout << "Recibo del servidor " << serverDelay.count() << std::endl;
-            }
-        });
-
-        threadClientsPool.push_back(threadClient);
-    }
-
-    for (size_t i = 0; i < 15; i++)
-    {
-        threadClientsPool[i]->join();
-        delete threadClientsPool[i];
-    }
 }

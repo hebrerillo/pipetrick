@@ -14,6 +14,7 @@
 #include <fcntl.h>
 
 #define BUFFER_SIZE 1024
+#define DEFAULT_PORT 8080
 
 namespace pipetrick
 {

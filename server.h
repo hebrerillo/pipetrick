@@ -31,7 +31,7 @@ public:
      * @param[in] port The port where the server will listen to incoming connections.
      * @return true if the server is started successfully, false otherwise.
      */
-    bool start(int port);
+    bool start(int port = DEFAULT_PORT);
 
     /**
      * Writes to the 'write' end of the pipe descriptor (pipeDescriptors_[1]) and waits for all clients to finish.

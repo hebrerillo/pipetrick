@@ -10,7 +10,7 @@ bool Common::createSocket(int &socketDescriptor, int flags)
     if (socketDescriptor == -1)
     {
         int errorNumber = errno;
-        Log::logError("Could not create the socket", errorNumber);
+        Log::logError("Common::createSocket - Could not create the socket", errorNumber);
         return false;
     }
 
@@ -22,7 +22,7 @@ Common::SelectResult Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd
 
     if (!readFds && !writeFds)
     {
-        Log::logError("No write or read file descriptors were provided.");
+        Log::logError("Common::doSelect - No write or read file descriptors were provided.");
         return SelectResult::ERROR;
     }
 
@@ -42,13 +42,13 @@ Common::SelectResult Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd
     if (retValue == -1)
     {
         int errorNumber = errno;
-        Log::logError("Select failed", errorNumber);
+        Log::logError("Common::doSelect - Select failed", errorNumber);
         return SelectResult::ERROR;
     }
 
     if (retValue == 0)
     {
-        Log::logError("Time out expired");
+        Log::logError("Common::doSelect - Time out expired");
         return SelectResult::TIMEOUT;
     }
 
@@ -74,11 +74,11 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
             errorNumber = errno;
             if (errorNumber == EAGAIN || errorNumber == EWOULDBLOCK)
             {
-                Log::logError("Reached time out when reading from the end point", errorNumber);
+                Log::logError("Common::readMessage - Reached time out when reading from the end point", errorNumber);
             }
             else
             {
-                Log::logError("Could not read data from the end point", errorNumber);
+                Log::logError("Common::readMessage - Could not read data from the end point", errorNumber);
             }
             keepReading = 0;
             return false;
@@ -109,7 +109,7 @@ bool Common::writeMessage(int socketDescriptor, char message[BUFFER_SIZE])
         if (bytesSent <= 0)
         {
             errorNumber = errno;
-            Log::logError("Could not send data to the end point", errorNumber);
+            Log::logError("Common::writeMessage - Could not send data to the end point", errorNumber);
             return false;
         }
         remainingBytesToSend -= bytesSent;
@@ -130,7 +130,7 @@ void Common::consumePipe(int pipeReadEnd)
             int errorNumber = errno;
             if (errorNumber != EAGAIN)
             {
-                Log::logError("Error reading all bytes from the pipe", errorNumber);
+                Log::logError("Common::consumePipe - Error reading all bytes from the pipe", errorNumber);
                 return;
             }
             done = true;

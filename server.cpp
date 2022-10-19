@@ -13,7 +13,7 @@ Server::Server(size_t maxClients) :
     if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
     {
         errorNumber = errno;
-        Log::logError("Could not create the pipe file descriptors", errorNumber);
+        Log::logError("Server::Server - Could not create the pipe file descriptors", errorNumber);
     }
 }
 
@@ -63,14 +63,14 @@ void Server::runClient(int socketClientDescriptor)
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds))
     {
-        Log::logVerbose("Socket client closed by self pipe.");
+        Log::logVerbose("Server::runClient - Socket client closed by self pipe.");
         closeClientAndNotify(socketClientDescriptor);
         return;
     }
 
     if (!FD_ISSET(socketClientDescriptor, &readFds))
     {
-        Log::logError("Expected a client file descriptor ready to read operations.");
+        Log::logError("Server::runClient - Expected a client file descriptor ready to read operations.");
         closeClientAndNotify(socketClientDescriptor);
         return;
     }
@@ -83,7 +83,7 @@ void Server::runClient(int socketClientDescriptor)
 
     if (sleep(clientBuffer))
     {
-        Log::logVerbose("Client will be closed after the sleeping time. No writing back to them.");
+        Log::logVerbose("Server::runClient - Client will be closed after the sleeping time. No writing back to them.");
         closeClientAndNotify(socketClientDescriptor);
         return;
     }
@@ -101,7 +101,7 @@ bool Server::bind(int port)
     if (::bind(serverSocketDescriptor_, (struct sockaddr*) &socketAddress, sizeof(socketAddress)) == -1)
     {
         int errorNumber = errno;
-        Log::logError("Could not bind to socket address", errorNumber);
+        Log::logError("Server::bind - Could not bind to socket address", errorNumber);
         return false;
     }
 
@@ -121,7 +121,7 @@ bool Server::start(int port)
     if (setsockopt(serverSocketDescriptor_, SOL_SOCKET, SO_REUSEADDR, &socketReuseOption, sizeof(int)) == -1)
     {
         int errorNumber = errno;
-        Log::logError("Could not reuse the socket descriptor", errorNumber);
+        Log::logError("Server::start - Could not reuse the socket descriptor", errorNumber);
         return false;
     }
 
@@ -133,7 +133,7 @@ bool Server::start(int port)
     if (listen(serverSocketDescriptor_, LISTEN_BACKLOG) == -1)
     {
         int errorNumber = errno;
-        Log::logError("Could not listen to socket", errorNumber);
+        Log::logError("Server::start - Could not listen to socket", errorNumber);
         return false;
     }
 
@@ -157,7 +157,7 @@ void Server::stop()
 
     if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, quitPredicate))
     {
-        Log::logError("Time out expired when waiting for the running thread to finish!!!");
+        Log::logError("Server::stop - Time out expired when waiting for the running thread to finish!!!");
         return;
     }
 
@@ -175,13 +175,13 @@ bool Server::doAccept()
     if (socketClientDescriptor == -1)
     {
         int errorNumber = errno;
-        Log::logError("Could not accept on the socket descriptor", errorNumber);
+        Log::logError("Server::doAccept - Could not accept on the socket descriptor", errorNumber);
         return false;
     }
 
     if (checkForMaximumNumberClients())
     {
-        Log::logVerbose("Quit signal was raised while waiting for the current number of clients to decrease.");
+        Log::logVerbose("Server::doAccept - Quit signal was raised while waiting for the current number of clients to decrease.");
         return false;
     }
 
@@ -194,10 +194,10 @@ bool Server::checkForMaximumNumberClients()
 {
     if (currentNumberClients_ >= maxNumberClients_)
     {
-        Log::logVerbose("The maximum number of clients has been reached. Waiting until one client finishes.");
+        Log::logVerbose("Server::checkForMaximumNumberClients - The maximum number of clients has been reached. Waiting until one client finishes.");
         if (currentNumberClients_ > maxNumberClients_)
         {
-            Log::logError("The current number of clients is way beyond the maximum number allowed. This should never happen!!!");
+            Log::logError("Server::checkForMaximumNumberClients - he current number of clients is way beyond the maximum number allowed. This should never happen!!!");
         }
 
         std::unique_lock < std::mutex > lock(mutex_);
@@ -220,7 +220,7 @@ void Server::waitForClientsToFinish()
 
     if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, clientsToFinishPredicate))
     {
-        Log::logError("Time out expired when waiting for all the clients to finish!!!");
+        Log::logError("Server::waitForClientsToFinish  - Time out expired when waiting for all the clients to finish!!!");
     }
 
     isRunning_.exchange(false);
@@ -243,7 +243,7 @@ void Server::run()
         }
         else if (FD_ISSET(pipeDescriptors_[0], &readFds))
         {
-            Log::logVerbose("Quitting server main loop by the self pipe trick.");
+            Log::logVerbose("Server::run - Quitting server main loop by the self pipe trick.");
             quit = true;
         }
         else if (FD_ISSET(serverSocketDescriptor_, &readFds))
@@ -265,25 +265,3 @@ size_t Server::getNumberOfClients() const
 }
 
 }
-
-int main()
-{
-    pipetrick::Server server(5);
-    server.start(8080);
-
-    int input = -1;
-    while (input != 0)
-    {
-        std::cin >> input;
-        switch (input)
-        {
-        case 1:
-            std::cout << "Number of clients: " << server.getNumberOfClients() << std::endl;
-            break;
-        }
-    }
-
-    server.stop();
-    return 0;
-}
-
