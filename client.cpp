@@ -6,7 +6,6 @@ namespace pipetrick
 
 const char *Client::DEFAULT_IP = "127.0.0.1";
 const int Client::DEFAULT_PORT = 8080;
-const std::chrono::milliseconds Client::DEFAULT_DELAY = std::chrono::milliseconds(1000);
 const std::chrono::milliseconds Client::MAXIMUM_WAITING_TIME_FOR_FLAG = std::chrono::milliseconds(2000);
 const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseconds(5 * 1000 * 1000);
 
@@ -70,7 +69,7 @@ bool Client::connectToServer()
     return true;
 }
 
-bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDelay)
+bool Client::sendDelayToServerAndWait(std::chrono::milliseconds &serverDelay)
 {
     char message[BUFFER_SIZE];
     fd_set writeFds;
@@ -153,6 +152,8 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
         return false;
     }
 
+    serverDelay = std::chrono::milliseconds(atoi(message));
+
     closeSocketAndNotify();
     return true;
 }
@@ -165,19 +166,29 @@ Client::~Client()
 
 }
 
+#include <vector>
 int main(int argc, char *argv[])
 {
-    pipetrick::Client client("127.0.0.1", 8080, std::chrono::microseconds(90 * 1000 * 1000));
+    std::vector<std::thread*> threadClientsPool;
 
-    std::thread threadClient([&client]()
+    for (size_t i = 0; i < 15; i++)
     {
-        std::this_thread::sleep_for(std::chrono::milliseconds(1500));
-        client.stop();
-    });
+        std::thread *threadClient = new std::thread([]()
+        {
+            pipetrick::Client client("127.0.0.1", 8080, std::chrono::microseconds(10 * 1000 * 1000));
+            std::chrono::milliseconds serverDelay = std::chrono::milliseconds(5 * 1000);
+            if (client.sendDelayToServerAndWait(serverDelay))
+            {
+                std::cout << "Recibo del servidor " << serverDelay.count() << std::endl;
+            }
+        });
 
-    client.sendDelayToServerAndWait(std::chrono::milliseconds(atoi(argv[1])));
+        threadClientsPool.push_back(threadClient);
+    }
 
-    threadClient.join();
-
-    return 0;
+    for (size_t i = 0; i < 15; i++)
+    {
+        threadClientsPool[i]->join();
+        delete threadClientsPool[i];
+    }
 }

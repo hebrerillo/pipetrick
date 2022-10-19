@@ -16,7 +16,6 @@ public:
 
     static const char* DEFAULT_IP;
     static const int DEFAULT_PORT;
-    static const std::chrono::milliseconds DEFAULT_DELAY;
     static const std::chrono::milliseconds MAXIMUM_WAITING_TIME_FOR_FLAG; //The maximum waiting time for the flag 'isRunning_' to be cleared.
     static const std::chrono::microseconds DEFAULT_TIMEOUT;
 
@@ -37,10 +36,11 @@ public:
      * - The time out 'timeOut_' expires.
      * - A call to 'stop' is performed.
      *
-     * @param[in] serverDelay The amount of time that the server will sleep before answering back to this client.
+     * @param[in/out] serverDelay The amount of time that the server will sleep before answering back to this client. If the call is successful, this method
+     *                            will modify this parameter by increasing its value by one.
      * @return true if this client had a response from the server, false if the time out expired, a call to 'stop' was performed while waiting or an error occurred.
      */
-    bool sendDelayToServerAndWait(const std::chrono::milliseconds& serverDelay = DEFAULT_DELAY);
+    bool sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay);
 
     /**
      * Quits any pending connection by a previous call to 'sendDelayToServer' by using the self pipe trick.

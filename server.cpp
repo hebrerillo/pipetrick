@@ -1,35 +1,95 @@
 #include "server.h"
-#include "common.h"
+#include "log.h"
 
 namespace pipetrick
 {
 
-Server::Server(size_t maxClients) :
-        maxNumberClients_(maxClients), currentNumberClients_(0)
-{}
+const std::chrono::milliseconds Server::MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH = std::chrono::milliseconds(2000);
 
-void Server::runClient(int *socketDescriptor)
+Server::Server(size_t maxClients) :
+        maxNumberClients_(maxClients), currentNumberClients_(0), isRunning_(false), quitSignal_(true)
 {
-    int socketClient = *socketDescriptor;
+    int errorNumber;
+    if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
+    {
+        errorNumber = errno;
+        Log::logError("Could not create the pipe file descriptors", errorNumber);
+    }
+}
+
+Server::~Server()
+{
+    close(pipeDescriptors_[0]);
+    close(pipeDescriptors_[1]);
+}
+
+void Server::closeClientAndNotify(int socketClientDescriptor)
+{
+    std::unique_lock < std::mutex > lock(mutex_);
+    close(socketClientDescriptor);
+    currentNumberClients_--;
+    clientsCV_.notify_one();
+}
+
+bool Server::sleep(char clientBuffer[BUFFER_SIZE])
+{
+    int sleepingTime = atoi(clientBuffer);
+    std::unique_lock < std::mutex > lock(mutex_);
+    clientsCV_.wait_for(lock, std::chrono::milliseconds(sleepingTime), [this]()
+    {
+        return quitSignal_.load();
+    });
+
+    strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
+    return quitSignal_.load();
+}
+
+void Server::runClient(int socketClientDescriptor)
+{
+    fd_set writeFds;
+    fd_set readFds;
     char clientBuffer[BUFFER_SIZE];
     memset(clientBuffer, 0, sizeof(clientBuffer));
 
-    if (!pipetrick::Common::readMessage(socketClient, clientBuffer))
+    FD_ZERO(&readFds);
+    FD_SET(socketClientDescriptor, &readFds);
+    FD_SET(pipeDescriptors_[0], &readFds);
+
+    if (Common::doSelect((pipeDescriptors_[0] > socketClientDescriptor ? pipeDescriptors_[0] : socketClientDescriptor) + 1, &readFds, nullptr, nullptr) != SelectResult::OK)
     {
+        closeClientAndNotify(socketClientDescriptor);
         return;
     }
 
-    int sleepingTime = atoi(clientBuffer);
-
-    std::this_thread::sleep_for(std::chrono::milliseconds(sleepingTime));
-    strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
-
-    if (!pipetrick::Common::writeMessage(socketClient, clientBuffer))
+    if (FD_ISSET(pipeDescriptors_[0], &readFds))
     {
+        Log::logVerbose("Socket client closed by self pipe.");
+        closeClientAndNotify(socketClientDescriptor);
         return;
     }
 
-    close(socketClient);
+    if (!FD_ISSET(socketClientDescriptor, &readFds))
+    {
+        Log::logError("Expected a client file descriptor ready to read operations.");
+        closeClientAndNotify(socketClientDescriptor);
+        return;
+    }
+
+    if (!Common::readMessage(socketClientDescriptor, clientBuffer))
+    {
+        closeClientAndNotify(socketClientDescriptor);
+        return;
+    }
+
+    if (sleep(clientBuffer))
+    {
+        Log::logVerbose("Client will be closed after the sleeping time. No writing back to them.");
+        closeClientAndNotify(socketClientDescriptor);
+        return;
+    }
+
+    Common::writeMessage(socketClientDescriptor, clientBuffer);
+    closeClientAndNotify(socketClientDescriptor);
 }
 
 bool Server::bind(int port)
@@ -41,7 +101,7 @@ bool Server::bind(int port)
     if (::bind(serverSocketDescriptor_, (struct sockaddr*) &socketAddress, sizeof(socketAddress)) == -1)
     {
         int errorNumber = errno;
-        std::cerr << "Could not bind to socket address. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        Log::logError("Could not bind to socket address", errorNumber);
         return false;
     }
 
@@ -52,7 +112,7 @@ bool Server::start(int port)
 {
     const int LISTEN_BACKLOG = 1;
 
-    if (!Common::createSocket(serverSocketDescriptor_))
+    if (!Common::createSocket(serverSocketDescriptor_, SOCK_NONBLOCK))
     {
         return false;
     }
@@ -61,7 +121,7 @@ bool Server::start(int port)
     if (setsockopt(serverSocketDescriptor_, SOL_SOCKET, SO_REUSEADDR, &socketReuseOption, sizeof(int)) == -1)
     {
         int errorNumber = errno;
-        std::cerr << "Could not reuse the socket descriptor. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        Log::logError("Could not reuse the socket descriptor", errorNumber);
         return false;
     }
 
@@ -73,39 +133,157 @@ bool Server::start(int port)
     if (listen(serverSocketDescriptor_, LISTEN_BACKLOG) == -1)
     {
         int errorNumber = errno;
-        std::cerr << "Could not listen to socket. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+        Log::logError("Could not listen to socket", errorNumber);
         return false;
     }
 
+    isRunning_ = true;
+    quitSignal_ = false;
     serverThread_ = std::thread(&Server::run, this);
     return true;
 }
 
-void Server::run()
+void Server::stop()
 {
-    while (1)
-    {
-        struct sockaddr_in clientAddress;
-        int sizeofSockAddr = sizeof(struct sockaddr_in);
+    std::unique_lock < std::mutex > lock(mutex_);
+    write(pipeDescriptors_[1], "0", 1);
+    quitSignal_.exchange(true);
+    clientsCV_.notify_one();
 
-        int socketClientDescriptor = accept(serverSocketDescriptor_, (struct sockaddr*) &clientAddress, (socklen_t*) &sizeofSockAddr);
-        if (socketClientDescriptor == -1)
+    auto quitPredicate = [this]()
+    {
+        return !isRunning_.load();
+    };
+
+    if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, quitPredicate))
+    {
+        Log::logError("Time out expired when waiting for the running thread to finish!!!");
+        return;
+    }
+
+    Common::consumePipe(pipeDescriptors_[0]);
+    lock.unlock();
+    serverThread_.join();
+}
+
+bool Server::doAccept()
+{
+    struct sockaddr_in clientAddress;
+    int sizeofSockAddr = sizeof(struct sockaddr_in);
+
+    int socketClientDescriptor = accept4(serverSocketDescriptor_, (struct sockaddr*) &clientAddress, (socklen_t*) &sizeofSockAddr, SOCK_NONBLOCK);
+    if (socketClientDescriptor == -1)
+    {
+        int errorNumber = errno;
+        Log::logError("Could not accept on the socket descriptor", errorNumber);
+        return false;
+    }
+
+    if (checkForMaximumNumberClients())
+    {
+        Log::logVerbose("Quit signal was raised while waiting for the current number of clients to decrease.");
+        return false;
+    }
+
+    currentNumberClients_++;
+    std::thread(&Server::runClient, this, socketClientDescriptor).detach();
+    return true;
+}
+
+bool Server::checkForMaximumNumberClients()
+{
+    if (currentNumberClients_ >= maxNumberClients_)
+    {
+        Log::logVerbose("The maximum number of clients has been reached. Waiting until one client finishes.");
+        if (currentNumberClients_ > maxNumberClients_)
         {
-            int errorNumber = errno;
-            std::cerr << "Could not accept on the socket descriptor. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-            return;
+            Log::logError("The current number of clients is way beyond the maximum number allowed. This should never happen!!!");
         }
 
-        std::thread(&Server::runClient, this, &socketClientDescriptor).detach();
+        std::unique_lock < std::mutex > lock(mutex_);
+        clientsCV_.wait(lock, [this]()
+        {
+            return (currentNumberClients_ < maxNumberClients_) || quitSignal_.load();
+        });
     }
+
+    return quitSignal_.load();
+}
+
+void Server::waitForClientsToFinish()
+{
+    std::unique_lock < std::mutex > lock(mutex_);
+    auto clientsToFinishPredicate = [this]()
+    {
+        return currentNumberClients_ == 0;
+    };
+
+    if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, clientsToFinishPredicate))
+    {
+        Log::logError("Time out expired when waiting for all the clients to finish!!!");
+    }
+
+    isRunning_.exchange(false);
+    clientsCV_.notify_one();
+}
+
+void Server::run()
+{
+    bool quit = false;
+    while (!quit)
+    {
+        fd_set readFds;
+        FD_ZERO(&readFds);
+        FD_SET(serverSocketDescriptor_, &readFds);
+        FD_SET(pipeDescriptors_[0], &readFds);
+
+        if (Common::doSelect((pipeDescriptors_[0] > serverSocketDescriptor_ ? pipeDescriptors_[0] : serverSocketDescriptor_) + 1, &readFds, nullptr, nullptr) != SelectResult::OK)
+        {
+            quit = true;
+        }
+        else if (FD_ISSET(pipeDescriptors_[0], &readFds))
+        {
+            Log::logVerbose("Quitting server main loop by the self pipe trick.");
+            quit = true;
+        }
+        else if (FD_ISSET(serverSocketDescriptor_, &readFds))
+        {
+            if (!doAccept())
+            {
+                quit = true;
+            }
+        }
+    }
+
+    waitForClientsToFinish();
+}
+
+size_t Server::getNumberOfClients() const
+{
+    std::unique_lock < std::mutex > lock(mutex_);
+    return currentNumberClients_;
 }
 
 }
 
 int main()
 {
-    pipetrick::Server server(90);
+    pipetrick::Server server(5);
     server.start(8080);
-    std::this_thread::sleep_for(std::chrono::seconds(90000));
+
+    int input = -1;
+    while (input != 0)
+    {
+        std::cin >> input;
+        switch (input)
+        {
+        case 1:
+            std::cout << "Number of clients: " << server.getNumberOfClients() << std::endl;
+            break;
+        }
+    }
+
+    server.stop();
     return 0;
 }
+
