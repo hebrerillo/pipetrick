@@ -5,12 +5,15 @@
 #include <mutex>
 #include <atomic>
 #include <condition_variable>
+#include "common.h"
 
 namespace pipetrick
 {
 class Client
 {
 public:
+    using SelectResult = Common::SelectResult;
+
     static const char* DEFAULT_IP;
     static const int DEFAULT_PORT;
     static const std::chrono::milliseconds DEFAULT_DELAY;
@@ -59,11 +62,6 @@ private:
      * @return true if the connection operation was succesfull, false otherwise.
      */
     bool connectToServer();
-
-    /**
-     * Consumes all the pending data in the read end pipe 'pipeDescriptors_[0]'.
-     */
-    void consumePipe() const;
     
     /**
      * Close the socket descriptor 'socketDescriptor_' and clears the flag 'isRunning_' to notify on threads waiting on 'quitCV_'.

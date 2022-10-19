@@ -1,7 +1,4 @@
-#include <arpa/inet.h>
-#include <fcntl.h>
 #include "client.h"
-#include "common.h"
 
 namespace pipetrick
 {
@@ -72,25 +69,6 @@ bool Client::connectToServer()
     return true;
 }
 
-void Client::consumePipe() const
-{
-    bool done = false;
-    while (!done)
-    {
-        char ch;
-        if (read(pipeDescriptors_[0], &ch, 1) == -1)
-        {
-            int errorNumber = errno;
-            if (errorNumber != EAGAIN)
-            {
-                std::cerr << "Error reading all bytes from the pipe. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-                return;
-            }
-            done = true;
-        }
-    }
-}
-
 bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDelay)
 {
     char message[BUFFER_SIZE];
@@ -105,7 +83,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
         return false;
     }
 
-    consumePipe(); //To consume data from the read side of the pipe produced on previous calls to this method.
+    Common::consumePipe(pipeDescriptors_[0]); //To consume data from the read side of the pipe produced on previous calls to this method.
 
     FD_ZERO(&readFds);
     FD_SET(socketDescriptor_, &readFds);
@@ -113,7 +91,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
     FD_ZERO(&writeFds);
     FD_SET(socketDescriptor_, &writeFds);
 
-    if (!Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_))
+    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_) != SelectResult::OK)
     {
         closeSocketAndNotify();
         return false;
@@ -121,7 +99,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
-        consumePipe();
+        Common::consumePipe(pipeDescriptors_[0]);
         closeSocketAndNotify();
         return false;
     }
@@ -145,7 +123,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
     FD_SET(socketDescriptor_, &readFds);
     FD_SET(pipeDescriptors_[0], &readFds);
 
-    if (!Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_))
+    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_) != SelectResult::OK)
     {
         closeSocketAndNotify();
         return false;
@@ -153,7 +131,7 @@ bool Client::sendDelayToServerAndWait(const std::chrono::milliseconds &serverDel
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
-        consumePipe();
+        Common::consumePipe(pipeDescriptors_[0]);
         closeSocketAndNotify();
         return false;
     }

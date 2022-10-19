@@ -122,4 +122,23 @@ bool Common::writeMessage(int socketDescriptor, char message[BUFFER_SIZE])
     return true;
 }
 
+void Common::consumePipe(int pipeReadEnd)
+{
+    bool done = false;
+    while (!done)
+    {
+        char ch;
+        if (read(pipeReadEnd, &ch, 1) == -1)
+        {
+            int errorNumber = errno;
+            if (errorNumber != EAGAIN)
+            {
+                std::cerr << "Error reading all bytes from the pipe. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
+                return;
+            }
+            done = true;
+        }
+    }
+}
+
 }

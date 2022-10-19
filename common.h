@@ -72,6 +72,11 @@ public:
      * @return true if there is a file descriptor that is ready to be read and/or write, false if the time out expired or if the select call failed.
      */
     static SelectResult doSelect(int maxFileDescriptor, fd_set* readFds, fd_set* writeFds, const std::chrono::microseconds* timeOut = nullptr);
+
+    /**
+     * Consumes all the pending data in the read end pipe 'pipeReadEnd'.
+     */
+    static void consumePipe(int pipeReadEnd);
 };
 
 }
