@@ -16,34 +16,42 @@ bool Common::createSocket(int &socketDescriptor, int flags)
     return true;
 }
 
-bool Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd_set *writeFds, const std::chrono::microseconds *timeOut)
+Common::SelectResult Common::doSelect(int maxFileDescriptor, fd_set *readFds, fd_set *writeFds, const std::chrono::microseconds *timeOut)
 {
-    struct timeval timeOutSelect;
-    timeOutSelect.tv_sec = 0;
-    timeOutSelect.tv_usec = timeOut->count();
 
     if (!readFds && !writeFds)
     {
         std::cout << "No write or read file descriptors were provided." << std::endl;
-        return false;
+        return SelectResult::ERROR;
     }
 
-    int retValue = select(maxFileDescriptor, readFds, writeFds, NULL, &timeOutSelect);
+    int retValue;
+    if (timeOut)
+    {
+        struct timeval timeOutSelect;
+        timeOutSelect.tv_sec = 0;
+        timeOutSelect.tv_usec = timeOut->count();
+        retValue = select(maxFileDescriptor, readFds, writeFds, NULL, &timeOutSelect);
+    }
+    else
+    {
+        retValue = select(maxFileDescriptor, readFds, writeFds, NULL, NULL);
+    }
 
     if (retValue == -1)
     {
         int errorNumber = errno;
         std::cerr << "select failed. Error code " << errorNumber << ": " << strerror(errorNumber) << std::endl;
-        return false;
+        return SelectResult::ERROR;
     }
 
     if (retValue == 0)
     {
         std::cerr << "Time out expired" << std::endl;
-        return false;
+        return SelectResult::TIMEOUT;
     }
 
-    return true;
+    return SelectResult::OK;
 }
 
 bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
@@ -55,7 +63,9 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE])
 
     while (keepReading)
     {
+        std::cout << "Before reading " << std::endl;
         ssize_t bytes = read(socketDescriptor, buffer + bufferPosition, BUFFER_SIZE);
+        std::cout << "after reading " << std::endl;
         if (bytes == 0)
         {
             keepReading = 0;

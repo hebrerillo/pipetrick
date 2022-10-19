@@ -10,6 +10,8 @@
 #include <thread>
 #include <unistd.h>
 #include <chrono>
+#include <arpa/inet.h>
+#include <fcntl.h>
 
 #define BUFFER_SIZE 1024
 
@@ -22,6 +24,16 @@ namespace pipetrick
 class Common
 {
 public:
+
+    /**
+     * Possible values of the select call.
+     */
+    enum class SelectResult
+    {
+        OK, //There is a file descriptor ready to be read and/or write
+        TIMEOUT, //The time out expired
+        ERROR //The select call failed
+    };
 
     /**
      * Creates a socket on 'socketDescriptor' with additional flags
@@ -59,7 +71,7 @@ public:
      * @param[in] timeOut The time out for the select operation.
      * @return true if there is a file descriptor that is ready to be read and/or write, false if the time out expired or if the select call failed.
      */
-    static bool doSelect(int maxFileDescriptor, fd_set* readFds, fd_set* writeFds, const std::chrono::microseconds* timeOut = nullptr);
+    static SelectResult doSelect(int maxFileDescriptor, fd_set* readFds, fd_set* writeFds, const std::chrono::microseconds* timeOut = nullptr);
 };
 
 }
