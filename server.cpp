@@ -23,7 +23,7 @@ bool Server::sleep(char clientBuffer[BUFFER_SIZE])
 {
     int sleepingTime = atoi(clientBuffer);
     std::unique_lock < std::mutex > lock(mutex_);
-    if (quitSignal_.load())
+    if (quitSignal_)
     {
         Log::logVerbose("Server::sleep - Quit signal already raised, not sleeping.");
         return true;
@@ -31,11 +31,11 @@ bool Server::sleep(char clientBuffer[BUFFER_SIZE])
 
     clientsCV_.wait_for(lock, std::chrono::milliseconds(sleepingTime), [this]()
     {
-        return quitSignal_.load();
+        return quitSignal_;
     });
 
     strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
-    return quitSignal_.load();
+    return quitSignal_;
 }
 
 void Server::runClient(int socketClientDescriptor)
@@ -181,7 +181,7 @@ void Server::waitForRunningThread()
     std::unique_lock < std::mutex > lock(mutex_);
     auto quitPredicate = [this]()
     {
-        return !isRunning_.load();
+        return !isRunning_;
     };
 
     if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, quitPredicate))
@@ -198,7 +198,7 @@ void Server::quitRunningThread()
 {
     std::unique_lock <std::mutex> lock(mutex_);
     write(pipeDescriptors_[1], "0", 1);
-    quitSignal_.exchange(true);
+    quitSignal_ = true;
     clientsCV_.notify_all();
 }
 
@@ -229,6 +229,7 @@ bool Server::doAccept()
 
 bool Server::checkForMaximumNumberClients()
 {
+    std::unique_lock < std::mutex > lock(mutex_);
     if (currentNumberClients_ >= maxNumberClients_)
     {
         Log::logVerbose("Server::checkForMaximumNumberClients - The maximum number of clients has been reached. Waiting until one client finishes.");
@@ -236,15 +237,14 @@ bool Server::checkForMaximumNumberClients()
         {
             Log::logError("Server::checkForMaximumNumberClients - The current number of clients is way beyond the maximum number allowed. This should never happen!!!");
         }
-
-        std::unique_lock < std::mutex > lock(mutex_);
+    
         clientsCV_.wait(lock, [this]()
         {
-            return (currentNumberClients_ < maxNumberClients_) || quitSignal_.load();
+            return (currentNumberClients_ < maxNumberClients_) || quitSignal_;
         });
     }
 
-    return quitSignal_.load();
+    return quitSignal_;
 }
 
 void Server::waitForClientsToFinish()
@@ -264,7 +264,7 @@ void Server::waitForClientsToFinish()
         Log::logError("Server::waitForClientsToFinish  - Time out expired when waiting for all the clients to finish!!!");
     }
 
-    isRunning_.exchange(false);
+    isRunning_ = false;
     clientsCV_.notify_all();
 }
 

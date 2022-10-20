@@ -115,8 +115,8 @@ private:
     size_t maxNumberClients_; //The maximum number of parallel clients allowed.
     size_t currentNumberClients_; //The current number of parallel connected clients.
     int serverSocketDescriptor_; //The socket descriptor for this server.
-    std::atomic<bool> isRunning_; //Whether the server thread is running.
-    std::atomic<bool> quitSignal_; //Will be raised when 'stop' is called.
+    bool isRunning_; //Whether the server thread is running.
+    bool quitSignal_; //Will be raised when 'stop' is called.
     std::thread serverThread_; //The running thread
     mutable std::mutex mutex_; //To notify on 'clientsCV_'
     std::condition_variable clientsCV_; //Will block when 'currentNumberClients_ >= maxNumberClients_'
