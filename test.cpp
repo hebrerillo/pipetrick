@@ -61,6 +61,42 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
     }
 }
 
+TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheServerReturnsTheCorrectIncreasedSleepingTimeForEachClient)
+{
+    size_t const MAX_NUMBER_CLIENTS = 30;
+    size_t START_DELAY_MS = 200;
+
+    Server server(MAX_NUMBER_CLIENTS);
+    server.start();
+
+    std::vector<ClientInfo* > clients;
+
+    //Create clients
+    for(size_t i = 0; i < MAX_NUMBER_CLIENTS; i++)
+    {
+        Client* client = new Client();
+        std::thread* clientThread = new std::thread([client, START_DELAY_MS, i]()
+        {
+            std::chrono::milliseconds serverDelay(START_DELAY_MS + i);
+            EXPECT_TRUE(client->sendDelayToServerAndWait(serverDelay));
+            EXPECT_EQ(serverDelay.count(), (START_DELAY_MS + i + 1));
+        });
+
+        ClientInfo* clientInfo = new ClientInfo(clientThread, client);
+        clients.push_back(clientInfo);
+    }
+
+    for(size_t i = 0; i < clients.size(); i++)
+    {
+        clients[i]->clientThread->join();
+        delete clients[i]->clientThread;
+        delete clients[i]->client;
+        delete clients[i];
+    }
+    server.stop();
+}
+
+
 int main(int argc, char **argv)
 {
     testing::InitGoogleTest(&argc, argv);
