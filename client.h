@@ -61,13 +61,18 @@ private:
      */
     void notifyQuit();
 
+    /**
+     * Writes to the end 'write' of the pipe and waits until 'isRunning_' is cleared.
+     */
+    void writeToPipeAndWait();
+
     std::chrono::microseconds timeOut_; //The maximum time to wait for socket operations to complete.
     std::string serverIP_;
     int serverPort_;
     int socketDescriptor_;
     int pipeDescriptors_[2]; //The file descriptors involved in the 'Self pipe trick'
     std::mutex mutex_;
-    std::atomic<bool> isRunning_; //True if there is a pending connection, false otherwise.
+    bool isRunning_; //True if there is a pending connection, false otherwise.
     std::condition_variable quitCV_; //To notify to the main that there are no pending connections.
 };
 }

@@ -14,16 +14,30 @@ Client::Client(const std::chrono::microseconds& timeOut, const char* serverIP, i
 
 void Client::stop()
 {
-    if (!isRunning_.load())
+    writeToPipeAndWait();
+    Common::consumePipe(pipeDescriptors_[0], "Client:");
+    close(socketDescriptor_);
+    close(pipeDescriptors_[0]);
+    close(pipeDescriptors_[1]);
+}
+
+void Client::writeToPipeAndWait()
+{
+    std::unique_lock < std::mutex > lock(mutex_);
+    if (!isRunning_)
     {
+        Log::logVerbose("Client::writeToPipeAndWait - Client is not running.");
         return;
     }
 
-    std::unique_lock < std::mutex > lock(mutex_);
-    write(pipeDescriptors_[1], "0", 1);
+    if (write(pipeDescriptors_[1], "0", 1) == -1)
+    {
+        int errorNumber = errno;
+        Log::logError("Client::writeToPipeAndWait - Error writing to the pipe.", errorNumber);
+    }
     auto quitPredicate = [this]()
     {
-        return !isRunning_.load();
+        return !isRunning_;
     };
 
     if (!quitCV_.wait_for(lock, MAXIMUM_WAITING_TIME_FOR_FLAG, quitPredicate))
@@ -31,17 +45,16 @@ void Client::stop()
         Log::logError("Client::stop - Time out expired when waiting for pending connections to finish!!!");
         return;
     }
-    lock.unlock();
-    Common::consumePipe(pipeDescriptors_[0]);
-    close(socketDescriptor_);
-    close(pipeDescriptors_[0]);
-    close(pipeDescriptors_[1]);
 }
 
 void Client::notifyQuit()
 {
     std::unique_lock < std::mutex > lock(mutex_);
-    isRunning_.exchange(false);
+    if (!isRunning_)
+    {
+        Log::logVerbose("Client::notifyQuit - Client is not running.");
+    }
+    isRunning_ = false;
     quitCV_.notify_all();
 }
 
@@ -51,11 +64,10 @@ bool Client::connectToServer()
     serverAddress.sin_addr.s_addr = inet_addr(serverIP_.c_str());
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(serverPort_);
-    int errorNumber;
 
     if (connect(socketDescriptor_, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) == -1)
     {
-        errorNumber = errno;
+        int errorNumber = errno;
         if (errorNumber != EINPROGRESS)
         {
             Log::logError("Client::connectToServer - Could not connect to the server", errorNumber);
@@ -68,22 +80,25 @@ bool Client::connectToServer()
 
 bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 {
+
+    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK, "Client:"))
+    {
+        return false;
+    }
+
     mutex_.lock();
+    isRunning_ = true;
     if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
     {
         int errorNumber = errno;
         Log::logError("Client::Client - Could not create the pipe file descriptors", errorNumber);
         mutex_.unlock();
+        notifyQuit();
         return false;
     }
     mutex_.unlock();
 
-    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK))
-    {
-        return false;
-    }
-
-    isRunning_.exchange(true);
+    
     if (!connectToServer())
     {
         notifyQuit();
@@ -93,12 +108,11 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     fd_set writeFds;
     fd_set readFds;
     FD_ZERO(&readFds);
-    FD_SET(socketDescriptor_, &readFds);
     FD_SET(pipeDescriptors_[0], &readFds);
     FD_ZERO(&writeFds);
     FD_SET(socketDescriptor_, &writeFds);
 
-    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_) != SelectResult::OK)
+    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_, "Client:") != SelectResult::OK)
     {
         notifyQuit();
         return false;
@@ -121,8 +135,9 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     char message[BUFFER_SIZE];
     memset(message, 0, sizeof(message));
     strcpy(message, std::to_string(serverDelay.count()).c_str());
-    if (!Common::writeMessage(socketDescriptor_, message))
+    if (!Common::writeMessage(socketDescriptor_, message, "Client:"))
     {
+        Log::logError("Client::sendDelayToServerAndWait - Could not send the delay to the server.");
         notifyQuit();
         return false;
     }
@@ -131,7 +146,7 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     FD_SET(socketDescriptor_, &readFds);
     FD_SET(pipeDescriptors_[0], &readFds);
 
-    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_) != SelectResult::OK)
+    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_, "Client:") != SelectResult::OK)
     {
         notifyQuit();
         return false;
@@ -152,8 +167,9 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     }
 
     memset(message, 0, sizeof(message));
-    if (!Common::readMessage(socketDescriptor_, message))
+    if (!Common::readMessage(socketDescriptor_, message, "Client:"))
     {
+        Log::logError("Client::sendDelayToServerAndWait - Could not get the increased delay from the server.");
         notifyQuit();
         return false;
     }

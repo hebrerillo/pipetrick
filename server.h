@@ -43,16 +43,15 @@ public:
      */
     size_t getNumberOfClients() const;
 
-    ~Server();
 private:
 
     /**
-     * Performs a bind operation on the socket 'serverSocketDescriptor_' on port 'port'.
+     * Performs a bind and listen operations on the socket 'serverSocketDescriptor_' on port 'port'.
      *
      * @param[in] The port to bind.
-     * @return true if the bind operation was successful, false otherwise.
+     * @return true if the bind and listen operations were successful, false otherwise.
      */
-    bool bind(int port);
+    bool bindAndListen(int port);
 
     /**
      * Method to serve a client with a socket descriptor 'socketDecriptor'.
@@ -98,6 +97,16 @@ private:
      * @return true if 'quitSignal_' was raised while sleeping, false if the current thread was capable of sleeping for the time specified in 'buffer'.
      */
     bool sleep(char buffer[BUFFER_SIZE]);
+
+    /**
+     * Raises the flag 'quitSignal_' and writes to the 'write' end of the pipe (pipeDescriptor_[1]).
+     */
+    void quitRunningThread();
+
+    /**
+     * Blocks the current thread until the flag 'isRunning_' is cleared.
+     */
+    void waitForRunningThread();
 
     /**
      * The method executed by the server to attend connections. It will be executed until a call to 'stop' is performed.
