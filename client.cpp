@@ -10,7 +10,10 @@ const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseco
 
 Client::Client(const std::chrono::microseconds& timeOut, const char* serverIP, int port) :
          timeOut_(timeOut), serverIP_(serverIP), serverPort_(port), isRunning_(false)
-{}
+{
+    pipeDescriptors_[0] = -1;
+    pipeDescriptors_[1] = -1;
+}
 
 void Client::stop()
 {
