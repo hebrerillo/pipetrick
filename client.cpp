@@ -8,25 +8,18 @@ const char *Client::DEFAULT_IP = "127.0.0.1";
 const std::chrono::milliseconds Client::MAXIMUM_WAITING_TIME_FOR_FLAG = std::chrono::milliseconds(2000);
 const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseconds(5 * 1000 * 1000);
 
-Client::Client(const std::chrono::microseconds &timeOut, const char *serverIP, int port) :
-        serverIP_(serverIP), serverPort_(port), isRunning_(false), timeOut_(timeOut)
-{
-    int errorNumber;
-    if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
-    {
-        errorNumber = errno;
-        Log::logError("Client::Client - Could not create the pipe file descriptors", errorNumber);
-    }
-}
+Client::Client(const std::chrono::microseconds& timeOut, const char* serverIP, int port) :
+         timeOut_(timeOut), serverIP_(serverIP), serverPort_(port), isRunning_(false)
+{}
 
 void Client::stop()
 {
-    std::unique_lock < std::mutex > lock(mutex_);
     if (!isRunning_.load())
     {
         return;
     }
 
+    std::unique_lock < std::mutex > lock(mutex_);
     write(pipeDescriptors_[1], "0", 1);
     auto quitPredicate = [this]()
     {
@@ -36,14 +29,18 @@ void Client::stop()
     if (!quitCV_.wait_for(lock, MAXIMUM_WAITING_TIME_FOR_FLAG, quitPredicate))
     {
         Log::logError("Client::stop - Time out expired when waiting for pending connections to finish!!!");
+        return;
     }
+    lock.unlock();
     Common::consumePipe(pipeDescriptors_[0]);
+    close(socketDescriptor_);
+    close(pipeDescriptors_[0]);
+    close(pipeDescriptors_[1]);
 }
 
-void Client::closeSocketAndNotify()
+void Client::notifyQuit()
 {
     std::unique_lock < std::mutex > lock(mutex_);
-    close(socketDescriptor_);
     isRunning_.exchange(false);
     quitCV_.notify_all();
 }
@@ -69,20 +66,32 @@ bool Client::connectToServer()
     return true;
 }
 
-bool Client::sendDelayToServerAndWait(std::chrono::milliseconds &serverDelay)
+bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 {
-    char message[BUFFER_SIZE];
-    fd_set writeFds;
-    fd_set readFds;
-
-    isRunning_.exchange(true);
-
-    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK) || !connectToServer())
+    mutex_.lock();
+    if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
     {
-        closeSocketAndNotify();
+        int errorNumber = errno;
+        Log::logError("Client::Client - Could not create the pipe file descriptors", errorNumber);
+        mutex_.unlock();
+        return false;
+    }
+    mutex_.unlock();
+
+    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK))
+    {
         return false;
     }
 
+    isRunning_.exchange(true);
+    if (!connectToServer())
+    {
+        notifyQuit();
+        return false;
+    }
+
+    fd_set writeFds;
+    fd_set readFds;
     FD_ZERO(&readFds);
     FD_SET(socketDescriptor_, &readFds);
     FD_SET(pipeDescriptors_[0], &readFds);
@@ -91,29 +100,30 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds &serverDelay)
 
     if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_) != SelectResult::OK)
     {
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
         Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the connect operation by the self pipe trick");
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
     if (!FD_ISSET(socketDescriptor_, &writeFds))
     {
         Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to write operations.");
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
+    char message[BUFFER_SIZE];
     memset(message, 0, sizeof(message));
     strcpy(message, std::to_string(serverDelay.count()).c_str());
     if (!Common::writeMessage(socketDescriptor_, message))
     {
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
@@ -123,41 +133,35 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds &serverDelay)
 
     if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_) != SelectResult::OK)
     {
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
         Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the read operation by the self pipe trick");
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
     if (!FD_ISSET(socketDescriptor_, &readFds))
     {
         Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to read operations.");
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
     memset(message, 0, sizeof(message));
     if (!Common::readMessage(socketDescriptor_, message))
     {
-        closeSocketAndNotify();
+        notifyQuit();
         return false;
     }
 
     serverDelay = std::chrono::milliseconds(atoi(message));
 
-    closeSocketAndNotify();
+    notifyQuit();
     return true;
-}
-
-Client::~Client()
-{
-    close(pipeDescriptors_[0]);
-    close(pipeDescriptors_[1]);
 }
 
 }
