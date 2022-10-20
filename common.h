@@ -41,27 +41,30 @@ public:
      *
      * @param[out] socketDescriptor The new socket descriptor.
      * @param[in] Additional flags to the 'socket' call.
+     * @param[in] prefix
      * @return true if the socket was created successfully, false if the 'socket' call failed.
      */
-    static bool createSocket(int& socketDescriptor, int flags = 0);
+    static bool createSocket(int& socketDescriptor, int flags = 0, const std::string& prefix = "");
 
     /**
      * Reads a message of size BUFFER_SIZE on the file descriptor 'socketDescriptor'.
      *
      * @param[in] socketDescriptor
      * @param[out] buffer
+     * @param[in] prefix
      * @return true if the read operation was successful, false otherwise
      */
-    static bool readMessage(int socketDescriptor, char buffer[BUFFER_SIZE]);
+    static bool readMessage(int socketDescriptor, char buffer[BUFFER_SIZE], const std::string& prefix = "");
 
     /**
      * Writes a message of size BUFFER_SIZE on the file descriptor 'socketDescriptor'.
      *
      * @param[in] socketDescriptor
-     * @param[out] buffer
+     * @param[in] buffer
+     * @param[in] prefix
      * @return true if the write operation was successful, false otherwise
      */
-    static bool writeMessage(int socketDescriptor, char message[BUFFER_SIZE]);
+    static bool writeMessage(int socketDescriptor, const char message[BUFFER_SIZE], const std::string& prefix = "");
 
     /**
      * Performs a select operation on the file descriptors set in 'readFds' and 'writeFds', with a time out.
@@ -70,14 +73,15 @@ public:
      * @param[in/out] readFds The file descriptors that will be watched for read operations.
      * @param[in/out] writeFds The file descriptors that will be watched for write operations.
      * @param[in] timeOut The time out for the select operation.
+     * @param[in] prefix
      * @return true if there is a file descriptor that is ready to be read and/or write, false if the time out expired or if the select call failed.
      */
-    static SelectResult doSelect(int maxFileDescriptor, fd_set* readFds, fd_set* writeFds, const std::chrono::microseconds* timeOut = nullptr);
+    static SelectResult doSelect(int maxFileDescriptor, fd_set* readFds, fd_set* writeFds, const std::chrono::microseconds* timeOut = nullptr, const std::string& prefix = "");
 
     /**
      * Consumes all the pending data in the read end pipe 'pipeReadEnd'.
      */
-    static void consumePipe(int pipeReadEnd);
+    static void consumePipe(int pipeReadEnd, const std::string& prefix = "");
 };
 
 }
