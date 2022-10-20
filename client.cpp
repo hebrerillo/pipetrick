@@ -81,26 +81,26 @@ bool Client::connectToServer()
     return true;
 }
 
-bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
+bool Client::createPipeDescriptorsAndRun()
 {
-
-    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK, "Client:"))
-    {
-        return false;
-    }
-
-    mutex_.lock();
-    isRunning_ = true;
+    std::unique_lock<std::mutex> lock(mutex_);
     if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
     {
         int errorNumber = errno;
         Log::logError("Client::Client - Could not create the pipe file descriptors", errorNumber);
-        mutex_.unlock();
-        notifyQuit();
         return false;
     }
-    mutex_.unlock();
 
+    isRunning_ = true;
+    return true;
+}
+
+bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
+{
+    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK, "Client:") || !createPipeDescriptorsAndRun())
+    {
+        return false;
+    }
     
     if (!connectToServer())
     {

@@ -66,6 +66,13 @@ private:
      */
     void writeToPipeAndWait();
 
+    /**
+     * Initialises the pipe descriptors for 'pipeDescriptors_' and, if the initialisation is successful, raises the flag 'isRunning_'.
+     *
+     * @return true if the pipe descriptors are initialised successfully and the 'isRunning_' flag is raised, false otherwise.
+     */
+    bool createPipeDescriptorsAndRun();
+
     std::chrono::microseconds timeOut_; //The maximum time to wait for socket operations to complete.
     std::string serverIP_;
     int serverPort_;
