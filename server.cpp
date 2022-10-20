@@ -211,6 +211,11 @@ bool Server::doAccept()
     if (socketClientDescriptor == -1)
     {
         int errorNumber = errno;
+        if (errorNumber == EMFILE)
+        {
+            Log::logError("Server::doAccept - The system reached the maximum number of open files."); 
+            return true; //This client is not attended, but the server is kept alive
+        }
         Log::logError("Server::doAccept - Could not accept on the socket descriptor", errorNumber);
         return false;
     }
