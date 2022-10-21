@@ -104,7 +104,7 @@ bool Client::checkPipeDescriptorsAndRun()
     return true;
 }
 
-bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
+bool Client::sendDelayToServer(std::chrono::milliseconds& serverDelay)
 {
     int socketDescriptor;
     if (!Common::createSocket(socketDescriptor, SOCK_NONBLOCK, "Client:") || !checkPipeDescriptorsAndRun())
@@ -133,14 +133,14 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
-        Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the connect operation by the self pipe trick");
+        Log::logVerbose("Client::sendDelayToServer - Quit client in the connect operation by the self pipe trick");
         closeAndNotify(socketDescriptor);
         return false;
     }
 
     if (!FD_ISSET(socketDescriptor, &writeFds))
     {
-        Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to write operations.");
+        Log::logError("Client::sendDelayToServer - Expected a file descriptor ready to write operations.");
         closeAndNotify(socketDescriptor);
         return false;
     }
@@ -150,7 +150,7 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     strcpy(message, std::to_string(serverDelay.count()).c_str());
     if (!Common::writeMessage(socketDescriptor, message, "Client:"))
     {
-        Log::logError("Client::sendDelayToServerAndWait - Could not send the delay to the server.");
+        Log::logError("Client::sendDelayToServer - Could not send the delay to the server.");
         closeAndNotify(socketDescriptor);
         return false;
     }
@@ -167,14 +167,14 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
-        Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the read operation by the self pipe trick");
+        Log::logVerbose("Client::sendDelayToServer - Quit client in the read operation by the self pipe trick");
         closeAndNotify(socketDescriptor);
         return false;
     }
 
     if (!FD_ISSET(socketDescriptor, &readFds))
     {
-        Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to read operations.");
+        Log::logError("Client::sendDelayToServer - Expected a file descriptor ready to read operations.");
         closeAndNotify(socketDescriptor);
         return false;
     }
@@ -182,7 +182,7 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     memset(message, 0, sizeof(message));
     if (!Common::readMessage(socketDescriptor, message, "Client:"))
     {
-        Log::logError("Client::sendDelayToServerAndWait - Could not get the increased delay from the server.");
+        Log::logError("Client::sendDelayToServer - Could not get the increased delay from the server.");
         closeAndNotify(socketDescriptor);
         return false;
     }

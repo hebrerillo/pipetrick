@@ -41,7 +41,7 @@ public:
      *                            will modify this parameter by increasing its value by one.
      * @return true if this client had a response from the server, false if the time out expired, a call to 'stop' was performed while waiting or an error occurred.
      */
-    bool sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay);
+    bool sendDelayToServer(std::chrono::milliseconds& serverDelay);
 
     /**
      * Quits any pending connection by a previous call to 'sendDelayToServer' by using the self pipe trick.
