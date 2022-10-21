@@ -32,7 +32,7 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
         std::thread* clientThread = new std::thread([client, SERVER_DELAY]()
         {
             std::chrono::milliseconds serverDelay(SERVER_DELAY);
-            EXPECT_FALSE(client->sendDelayToServerAndWait(serverDelay));
+            EXPECT_FALSE(client->sendDelayToServer(serverDelay));
         });
 
         ClientInfo* clientInfo = new ClientInfo(clientThread, client);
@@ -91,7 +91,7 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
         std::thread* clientThread = new std::thread([client, SERVER_DELAY]()
         {
             std::chrono::milliseconds serverDelay(SERVER_DELAY);
-            EXPECT_FALSE(client->sendDelayToServerAndWait(serverDelay));
+            EXPECT_FALSE(client->sendDelayToServer(serverDelay));
         });
 
         ClientInfo* clientInfo = new ClientInfo(clientThread, client);
@@ -139,13 +139,13 @@ TEST_F(PipeTrickTest, WhenAddingAClientWithSmallTimeOutToAFullyServer_ThenTheCli
     std::thread client1Thread = std::thread([&client1, SERVER_DELAY]()
     {
         std::chrono::milliseconds serverDelay(SERVER_DELAY);
-        EXPECT_FALSE(client1.sendDelayToServerAndWait(serverDelay));
+        EXPECT_FALSE(client1.sendDelayToServer(serverDelay));
     });
 
     std::this_thread::sleep_for(std::chrono::milliseconds(25));
     Client client2(SMALL_TIME_OUT);
     std::chrono::milliseconds serverDelay(SERVER_DELAY);
-    EXPECT_FALSE(client2.sendDelayToServerAndWait(serverDelay)); //This will fail because the server is full of clients and this client has a very small time out to wait for the server.
+    EXPECT_FALSE(client2.sendDelayToServer(serverDelay)); //This will fail because the server is full of clients and this client has a very small time out to wait for the server.
     client1.stop();
     client1Thread.join();
     server.stop();
@@ -169,7 +169,7 @@ TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheSer
         std::thread* clientThread = new std::thread([client, START_DELAY_MS, i]()
         {
             std::chrono::milliseconds serverDelay(START_DELAY_MS + i);
-            EXPECT_TRUE(client->sendDelayToServerAndWait(serverDelay));
+            EXPECT_TRUE(client->sendDelayToServer(serverDelay));
             EXPECT_EQ(serverDelay.count(), (START_DELAY_MS + i + 1));
         });
 
@@ -197,7 +197,7 @@ TEST_F(PipeTrickTest, WhenAClientTellsTheServerToSleepForAVeryLongTimeAndTheClie
     std::thread threadFirstClient = std::thread([&c1]()
     {
         std::chrono::milliseconds serverDelay(90 * 1000);
-        EXPECT_FALSE(c1.sendDelayToServerAndWait(serverDelay));
+        EXPECT_FALSE(c1.sendDelayToServer(serverDelay));
     });
     
     std::this_thread::sleep_for(std::chrono::milliseconds(90));
