@@ -58,26 +58,26 @@ void Client::writeToPipeAndWait()
     }
 }
 
-void Client::closeAndNotify()
+void Client::closeAndNotify(int socketDescriptor)
 {
     std::unique_lock < std::mutex > lock(mutex_);
     if (!isRunning_)
     {
         Log::logVerbose("Client::closeAndNotify - Client is not running.");
     }
-    close(socketDescriptor_);
+    close(socketDescriptor);
     isRunning_ = false;
     quitCV_.notify_all();
 }
 
-bool Client::connectToServer()
+bool Client::connectToServer(int socketDescriptor)
 {
     struct sockaddr_in serverAddress;
     serverAddress.sin_addr.s_addr = inet_addr(serverIP_.c_str());
     serverAddress.sin_family = AF_INET;
     serverAddress.sin_port = htons(serverPort_);
 
-    if (connect(socketDescriptor_, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) == -1)
+    if (connect(socketDescriptor, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) == -1)
     {
         int errorNumber = errno;
         if (errorNumber != EINPROGRESS)
@@ -106,14 +106,15 @@ bool Client::checkPipeDescriptorsAndRun()
 
 bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 {
-    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK, "Client:") || !checkPipeDescriptorsAndRun())
+    int socketDescriptor;
+    if (!Common::createSocket(socketDescriptor, SOCK_NONBLOCK, "Client:") || !checkPipeDescriptorsAndRun())
     {
         return false;
     }
     
-    if (!connectToServer())
+    if (!connectToServer(socketDescriptor))
     {
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
@@ -122,73 +123,73 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     FD_ZERO(&readFds);
     FD_SET(pipeDescriptors_[0], &readFds);
     FD_ZERO(&writeFds);
-    FD_SET(socketDescriptor_, &writeFds);
+    FD_SET(socketDescriptor, &writeFds);
 
-    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_, "Client:") != SelectResult::OK)
+    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor ? pipeDescriptors_[0] : socketDescriptor) + 1, &readFds, &writeFds, &timeOut_, "Client:") != SelectResult::OK)
     {
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
         Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the connect operation by the self pipe trick");
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
-    if (!FD_ISSET(socketDescriptor_, &writeFds))
+    if (!FD_ISSET(socketDescriptor, &writeFds))
     {
         Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to write operations.");
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
     char message[BUFFER_SIZE];
     memset(message, 0, sizeof(message));
     strcpy(message, std::to_string(serverDelay.count()).c_str());
-    if (!Common::writeMessage(socketDescriptor_, message, "Client:"))
+    if (!Common::writeMessage(socketDescriptor, message, "Client:"))
     {
         Log::logError("Client::sendDelayToServerAndWait - Could not send the delay to the server.");
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
     FD_ZERO(&readFds);
-    FD_SET(socketDescriptor_, &readFds);
+    FD_SET(socketDescriptor, &readFds);
     FD_SET(pipeDescriptors_[0], &readFds);
 
-    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_, "Client:") != SelectResult::OK)
+    if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor ? pipeDescriptors_[0] : socketDescriptor) + 1, &readFds, nullptr, &timeOut_, "Client:") != SelectResult::OK)
     {
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
         Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the read operation by the self pipe trick");
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
-    if (!FD_ISSET(socketDescriptor_, &readFds))
+    if (!FD_ISSET(socketDescriptor, &readFds))
     {
         Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to read operations.");
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
     memset(message, 0, sizeof(message));
-    if (!Common::readMessage(socketDescriptor_, message, "Client:"))
+    if (!Common::readMessage(socketDescriptor, message, "Client:"))
     {
         Log::logError("Client::sendDelayToServerAndWait - Could not get the increased delay from the server.");
-        closeAndNotify();
+        closeAndNotify(socketDescriptor);
         return false;
     }
 
     serverDelay = std::chrono::milliseconds(atoi(message));
 
-    closeAndNotify();
+    closeAndNotify(socketDescriptor);
     return true;
 }
 

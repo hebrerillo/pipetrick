@@ -54,14 +54,17 @@ private:
     /**
      * Performs a connection operation to 'serverIP_' on port 'serverPort_'.
      *
+     * @param[in] socketDescriptor The socket descriptor of this client.
      * @return true if the connection operation was succesfull, false otherwise.
      */
-    bool connectToServer();
+    bool connectToServer(int socketDescriptor);
 
     /**
-     * Closes the socket descriptor 'socketDescriptor_' and clears the flag 'isRunning_' to notify all threads.
+     * Closes the socket descriptor 'socketDescriptor' and clears the flag 'isRunning_' to notify all threads.
+     *
+     * @param socketDescriptor The socket descriptor of this client.
      */
-    void closeAndNotify();
+    void closeAndNotify(int socketDescriptor);
 
     /**
      * Writes to the end 'write' of the pipe and waits until 'isRunning_' is cleared.
@@ -78,7 +81,6 @@ private:
     std::chrono::microseconds timeOut_; //The maximum time to wait for socket operations to complete.
     std::string serverIP_;
     int serverPort_;
-    int socketDescriptor_;
     int pipeDescriptors_[2]; //The file descriptors involved in the 'Self pipe trick'
     std::mutex mutex_;
     bool isRunning_; //True if there is a pending connection, false otherwise.
