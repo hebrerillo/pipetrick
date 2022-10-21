@@ -1,5 +1,5 @@
-#ifndef PS_COMMON_H
-#define PS_COMMON_H
+#ifndef PT_COMMON_H
+#define PT_COMMON_H
 
 #include <sys/socket.h>
 #include <sys/types.h>
