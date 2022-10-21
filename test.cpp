@@ -107,7 +107,7 @@ TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheSer
     server.stop();
 }
 
-TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheServerReturnsTheCorrectIncreasedSleepingTimeForEachClient2)
+TEST_F(PipeTrickTest, WhenAClientTellsTheServerToSleepForAVeryLongTimeAndTheClientIsStopped_ThenTheServerStopsTheSleep)
 {
     size_t const MAX_NUMBER_CLIENTS = 1;
     Server server(MAX_NUMBER_CLIENTS);
@@ -120,10 +120,10 @@ TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheSer
         EXPECT_FALSE(c1.sendDelayToServerAndWait(serverDelay));
     });
     
-    std::this_thread::sleep_for(std::chrono::milliseconds(180));
+    std::this_thread::sleep_for(std::chrono::milliseconds(90));
     EXPECT_EQ(server.getNumberOfClients(), MAX_NUMBER_CLIENTS);
     c1.stop();
-    std::this_thread::sleep_for(std::chrono::milliseconds(280));
+    std::this_thread::sleep_for(std::chrono::milliseconds(90));
     EXPECT_EQ(server.getNumberOfClients(), 0);
     threadFirstClient.join();
     server.stop();
