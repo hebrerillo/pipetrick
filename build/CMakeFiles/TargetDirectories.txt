@@ -1,8 +1,0 @@
-/home/jesus/proyects/pipe_trick/build/CMakeFiles/rebuild_cache.dir
-/home/jesus/proyects/pipe_trick/build/CMakeFiles/edit_cache.dir
-/home/jesus/proyects/pipe_trick/build/src/CMakeFiles/rebuild_cache.dir
-/home/jesus/proyects/pipe_trick/build/src/CMakeFiles/edit_cache.dir
-/home/jesus/proyects/pipe_trick/build/src/CMakeFiles/pipetrick.dir
-/home/jesus/proyects/pipe_trick/build/testApps/CMakeFiles/rebuild_cache.dir
-/home/jesus/proyects/pipe_trick/build/testApps/CMakeFiles/edit_cache.dir
-/home/jesus/proyects/pipe_trick/build/testApps/CMakeFiles/pttest.dir

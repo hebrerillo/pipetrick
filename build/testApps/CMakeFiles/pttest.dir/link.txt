@@ -1,1 +1,0 @@
-/usr/bin/c++     CMakeFiles/pttest.dir/test.cpp.o  -o ../bin/pttest   -L/home/jesus/proyects/pipe_trick/src  -Wl,-rpath,/home/jesus/proyects/pipe_trick/src ../src/libpipetrick.a -lpthread ../../lib/libgtest.a 

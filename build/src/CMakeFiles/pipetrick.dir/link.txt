@@ -1,2 +1,0 @@
-/usr/bin/ar qc libpipetrick.a  CMakeFiles/pipetrick.dir/client.cpp.o CMakeFiles/pipetrick.dir/common.cpp.o CMakeFiles/pipetrick.dir/log.cpp.o CMakeFiles/pipetrick.dir/server.cpp.o
-/usr/bin/ranlib libpipetrick.a
