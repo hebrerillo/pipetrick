@@ -41,7 +41,7 @@ Common::SelectResult Common::doSelect(int maxFileDescriptor, fd_set* readFds, fd
 
     if (retValue == 0)
     {
-        Log::logError(prefix + "Common::doSelect - Time out expired");
+        Log::logVerbose(prefix + "Common::doSelect - Time out expired");
         return SelectResult::TIMEOUT;
     }
 
