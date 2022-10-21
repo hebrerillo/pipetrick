@@ -1,6 +1,7 @@
 #include <chrono>
 #include <thread>
 #include <pthread.h>
+#include <valgrind/memcheck.h>
 #include "test.h"
 
 void PipeTrickTest::SetUp()
@@ -45,6 +46,13 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
     }
     EXPECT_EQ(server.getNumberOfClients(), MAX_NUMBER_CLIENTS);
 
+    uint64_t MAX_ELAPSED_TIME = 60; //The maximum elapsed time before and after stopping all clients and server, in milliseconds.
+    if (RUNNING_ON_VALGRIND)
+    {
+        MAX_ELAPSED_TIME = 4000;
+    }
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
     //Stop clients and server
     for(size_t i = 0; i < clients.size(); i++)
     {
@@ -59,6 +67,9 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
         delete clients[i]->clientThread;
         delete clients[i];
     }
+
+    std::chrono::milliseconds elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now() - begin);
+    EXPECT_LT(elapsedTime.count(), MAX_ELAPSED_TIME);
 }
 
 TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheServerReturnsTheCorrectIncreasedSleepingTimeForEachClient)
