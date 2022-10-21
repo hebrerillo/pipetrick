@@ -90,13 +90,15 @@ private:
     void closeClientAndNotify(int socketClientDescriptor);
 
     /**
-     * Place the current thread to sleep for a specific number of milliseconds, which is specified in 'buffer'. However, the call will return immediately if 'quitSignal_' is raised from
-     * another thread. It also modifies 'buffer' by increasing the initial number of milliseconds by one.
+     * Place the current thread to sleep for the number of milliseconds specified in 'buffer'. However, the call will return immediately if 'stop' is called from
+     * another thread or if the remote client closes the connection. It also modifies 'buffer' by increasing the initial number of milliseconds by one.
      *
-     * @param[in/out] buffer The string containing the number of milliseconds to sleep. After the call, this number will be increased by one.
-     * @return true if 'quitSignal_' was raised while sleeping, false if the current thread was capable of sleeping for the time specified in 'buffer'.
+     * @param[in] The socket descriptor of the remote client.
+     * @param[in/out] buffer The string containing the number of milliseconds to sleep. If the thread slept the specified time, this string will be modified to contain the initial number increased by one.
+     * @return true if 'stop' call was performed while sleeping or the peer closed the connection, false if the current thread was capable of sleeping for the time specified in 'buffer', in which
+     *         case 'buffer' will be modified to contain the initial number of milliseconds increased by one.
      */
-    bool sleep(char buffer[BUFFER_SIZE]);
+    bool sleep(int socketClientDescriptor, char buffer[BUFFER_SIZE]);
 
     /**
      * Raises the flag 'quitSignal_' and writes to the 'write' end of the pipe (pipeDescriptor_[1]).

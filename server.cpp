@@ -1,3 +1,4 @@
+#include <sys/ioctl.h>
 #include "server.h"
 #include "log.h"
 
@@ -19,23 +20,55 @@ void Server::closeClientAndNotify(int socketClientDescriptor)
     clientsCV_.notify_all();
 }
 
-bool Server::sleep(char clientBuffer[BUFFER_SIZE])
+bool Server::sleep(int socketClientDescriptor, char clientBuffer[BUFFER_SIZE])
 {
     int sleepingTime = atoi(clientBuffer);
-    std::unique_lock < std::mutex > lock(mutex_);
-    if (quitSignal_)
+    std::chrono::microseconds selectTimeOut(sleepingTime * 1000);
+    fd_set readFds;
+    FD_ZERO(&readFds);
+    FD_SET(socketClientDescriptor, &readFds);
+    FD_SET(pipeDescriptors_[0], &readFds);
+
+    SelectResult result = Common::doSelect((pipeDescriptors_[0] > socketClientDescriptor ? pipeDescriptors_[0] : socketClientDescriptor) + 1, &readFds, nullptr, &selectTimeOut, "Server:");
+    if (result == SelectResult::TIMEOUT)
     {
-        Log::logVerbose("Server::sleep - Quit signal already raised, not sleeping.");
+        strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
+        return false;
+    }
+
+    if (result == SelectResult::ERROR)
+    {
+        Log::logError("Server::sleep - Select call failed.");
         return true;
     }
 
-    clientsCV_.wait_for(lock, std::chrono::milliseconds(sleepingTime), [this]()
+    if (FD_ISSET(pipeDescriptors_[0], &readFds))
     {
-        return quitSignal_;
-    });
+        Log::logVerbose("Server::sleep - stop was called while sleeping.");
+        return true;
+    }
 
-    strcpy(clientBuffer, std::to_string(++sleepingTime).c_str());
-    return quitSignal_;
+    if (!FD_ISSET(socketClientDescriptor, &readFds))
+    {
+        Log::logError("Server::sleep - select returned with no error, no files ready to be read and before the sleeping time!!!");
+        return true;
+    }
+
+    //Let's check if the remote peer closed the connection
+    int bytesAvailable;
+    if (ioctl(socketClientDescriptor, FIONREAD, &bytesAvailable) == -1)
+    {
+        int errorNumber = errno;
+        Log::logError("Server::sleep - ioctel failed when checking if the remote peer closed the connection", errorNumber);
+        return true;
+    }
+
+    if (bytesAvailable == 0) //The remote peer closed the connection.
+    {
+        Log::logVerbose("Server::sleep - the remote peer closed the connection.");
+    }
+
+    return true;
 }
 
 void Server::runClient(int socketClientDescriptor)
@@ -77,7 +110,7 @@ void Server::runClient(int socketClientDescriptor)
         return;
     }
 
-    if (sleep(clientBuffer))
+    if (sleep(socketClientDescriptor, clientBuffer))
     {
         Log::logVerbose("Server::runClient - Client will be closed after the sleeping time. No writing back to them.");
         closeClientAndNotify(socketClientDescriptor);
