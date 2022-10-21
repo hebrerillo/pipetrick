@@ -126,10 +126,36 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
     EXPECT_LT(elapsedTime.count(), MAX_ELAPSED_TIME);
 }
 
+TEST_F(PipeTrickTest, WhenAddingAClientWithSmallTimeOutToAFullyServer_ThenTheClientReturnsWithTimeOutError)
+{
+    const size_t MAX_NUMBER_CLIENTS = 1;
+    const uint64_t SERVER_DELAY = 90 * 1000;
+    const std::chrono::microseconds SMALL_TIME_OUT(200000); //In microseconds
+
+    Server server(MAX_NUMBER_CLIENTS);
+    server.start();
+
+    Client client1;
+    std::thread client1Thread = std::thread([&client1, SERVER_DELAY]()
+    {
+        std::chrono::milliseconds serverDelay(SERVER_DELAY);
+        EXPECT_FALSE(client1.sendDelayToServerAndWait(serverDelay));
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(25));
+    Client client2(SMALL_TIME_OUT);
+    std::chrono::milliseconds serverDelay(SERVER_DELAY);
+    EXPECT_FALSE(client2.sendDelayToServerAndWait(serverDelay)); //This will fail because the server is full of clients and this client has a very small time out to wait for the server.
+    client1.stop();
+    client1Thread.join();
+    server.stop();
+}
+
 TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheServerReturnsTheCorrectIncreasedSleepingTimeForEachClient)
 {
-    size_t const MAX_NUMBER_CLIENTS = 30;
-    size_t START_DELAY_MS = 200;
+    //This test shows that the server can accept several parallel clients at the same time.
+    const size_t MAX_NUMBER_CLIENTS = 30;
+    const size_t START_DELAY_MS = 200;
 
     Server server(MAX_NUMBER_CLIENTS);
     server.start();
