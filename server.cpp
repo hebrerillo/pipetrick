@@ -266,7 +266,7 @@ void Server::waitForClientsToFinish()
     }
     else if(!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, clientsToFinishPredicate))
     {
-        Log::logError("Server::waitForClientsToFinish  - Time out expired when waiting for all the clients to finish!!!");
+        Log::logError("Server::waitForClientsToFinish  - Time out expired when waiting for all the clients to finish. There are still some clients connected!!!");
     }
 
     isRunning_ = false;
