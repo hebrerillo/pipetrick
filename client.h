@@ -28,6 +28,8 @@ public:
      */
     Client(const std::chrono::microseconds& timeOut = DEFAULT_TIMEOUT, const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
 
+    ~Client();
+
     /**
      * Sends a delay 'serverDelay' to the server, so the server will sleep 'serverDelay' milliseconds before answering back.
      * This call blocks until :
@@ -57,9 +59,9 @@ private:
     bool connectToServer();
 
     /**
-     * Clears the flag 'isRunning_' and notify all threads.
+     * Closes the socket descriptor 'socketDescriptor_' and clears the flag 'isRunning_' to notify all threads.
      */
-    void notifyQuit();
+    void closeAndNotify();
 
     /**
      * Writes to the end 'write' of the pipe and waits until 'isRunning_' is cleared.
@@ -67,11 +69,11 @@ private:
     void writeToPipeAndWait();
 
     /**
-     * Initialises the pipe descriptors for 'pipeDescriptors_' and, if the initialisation is successful, raises the flag 'isRunning_'.
+     * Check for valid pipe descriptors 'pipeDescriptors_' and, if the descriptors are valid, raises the flag 'isRunning_'.
      *
      * @return true if the pipe descriptors are initialised successfully and the 'isRunning_' flag is raised, false otherwise.
      */
-    bool createPipeDescriptorsAndRun();
+    bool checkPipeDescriptorsAndRun();
 
     std::chrono::microseconds timeOut_; //The maximum time to wait for socket operations to complete.
     std::string serverIP_;

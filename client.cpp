@@ -13,15 +13,23 @@ Client::Client(const std::chrono::microseconds& timeOut, const char* serverIP, i
 {
     pipeDescriptors_[0] = -1;
     pipeDescriptors_[1] = -1;
+    if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
+    {
+        int errorNumber = errno;
+        Log::logError("Client::Client - Could not create the pipe file descriptors", errorNumber);
+    }
+}
+
+Client::~Client()
+{
+    close(pipeDescriptors_[0]);
+    close(pipeDescriptors_[1]);
 }
 
 void Client::stop()
 {
     writeToPipeAndWait();
     Common::consumePipe(pipeDescriptors_[0], "Client:");
-    close(socketDescriptor_);
-    close(pipeDescriptors_[0]);
-    close(pipeDescriptors_[1]);
 }
 
 void Client::writeToPipeAndWait()
@@ -50,13 +58,14 @@ void Client::writeToPipeAndWait()
     }
 }
 
-void Client::notifyQuit()
+void Client::closeAndNotify()
 {
     std::unique_lock < std::mutex > lock(mutex_);
     if (!isRunning_)
     {
-        Log::logVerbose("Client::notifyQuit - Client is not running.");
+        Log::logVerbose("Client::closeAndNotify - Client is not running.");
     }
+    close(socketDescriptor_);
     isRunning_ = false;
     quitCV_.notify_all();
 }
@@ -81,10 +90,10 @@ bool Client::connectToServer()
     return true;
 }
 
-bool Client::createPipeDescriptorsAndRun()
+bool Client::checkPipeDescriptorsAndRun()
 {
     std::unique_lock<std::mutex> lock(mutex_);
-    if (pipe2(pipeDescriptors_, O_NONBLOCK) == -1)
+    if (pipeDescriptors_[0] == -1 || pipeDescriptors_[1] == -1)
     {
         int errorNumber = errno;
         Log::logError("Client::Client - Could not create the pipe file descriptors", errorNumber);
@@ -97,14 +106,14 @@ bool Client::createPipeDescriptorsAndRun()
 
 bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 {
-    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK, "Client:") || !createPipeDescriptorsAndRun())
+    if (!Common::createSocket(socketDescriptor_, SOCK_NONBLOCK, "Client:") || !checkPipeDescriptorsAndRun())
     {
         return false;
     }
     
     if (!connectToServer())
     {
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
@@ -117,21 +126,21 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 
     if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, &writeFds, &timeOut_, "Client:") != SelectResult::OK)
     {
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
         Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the connect operation by the self pipe trick");
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
     if (!FD_ISSET(socketDescriptor_, &writeFds))
     {
         Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to write operations.");
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
@@ -141,7 +150,7 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     if (!Common::writeMessage(socketDescriptor_, message, "Client:"))
     {
         Log::logError("Client::sendDelayToServerAndWait - Could not send the delay to the server.");
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
@@ -151,21 +160,21 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
 
     if (Common::doSelect((pipeDescriptors_[0] > socketDescriptor_ ? pipeDescriptors_[0] : socketDescriptor_) + 1, &readFds, nullptr, &timeOut_, "Client:") != SelectResult::OK)
     {
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
     if (FD_ISSET(pipeDescriptors_[0], &readFds)) //Another thread wrote to the 'write' end of the pipe.
     {
         Log::logVerbose("Client::sendDelayToServerAndWait - Quit client in the read operation by the self pipe trick");
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
     if (!FD_ISSET(socketDescriptor_, &readFds))
     {
         Log::logError("Client::sendDelayToServerAndWait - Expected a file descriptor ready to read operations.");
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
@@ -173,13 +182,13 @@ bool Client::sendDelayToServerAndWait(std::chrono::milliseconds& serverDelay)
     if (!Common::readMessage(socketDescriptor_, message, "Client:"))
     {
         Log::logError("Client::sendDelayToServerAndWait - Could not get the increased delay from the server.");
-        notifyQuit();
+        closeAndNotify();
         return false;
     }
 
     serverDelay = std::chrono::milliseconds(atoi(message));
 
-    notifyQuit();
+    closeAndNotify();
     return true;
 }
 
