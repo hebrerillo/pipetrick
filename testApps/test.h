@@ -2,6 +2,7 @@
 #define PT_TEST_H
 
 #include <gtest/gtest.h>
+#include "valgrind_check.h"
 #include "server.h"
 #include "client.h"
 
@@ -27,6 +28,6 @@ public:
     void TearDown() override;
 
 protected:
-
+    ValgrindCheck valgrindCheck_;
 };
 #endif

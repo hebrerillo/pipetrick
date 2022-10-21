@@ -6,12 +6,12 @@
 
 void PipeTrickTest::SetUp()
 {
-
+    valgrindCheck_.leakCheckInit();
 }
 
 void PipeTrickTest::TearDown()
 {
-
+    valgrindCheck_.leakCheckEnd();
 }
 
 TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndStoppingAllOfThem_ThenTheQuitProcessIsFast)
