@@ -1,11 +1,12 @@
 !.gitignore
-!/build/*
 *.patch
-bin/
 misc/
 *.gch
 client
 server
-*.o
 .project
+/build/*
+!/build/bin
+/build/bin/pttest
+
 
