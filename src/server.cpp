@@ -7,8 +7,12 @@ namespace pipetrick
 
 const std::chrono::milliseconds Server::MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH = std::chrono::milliseconds(2000);
 
-Server::Server(size_t maxClients) :
-        maxNumberClients_(maxClients), currentNumberClients_(0), isRunning_(false), quitSignal_(true)
+Server::Server(size_t maxClients) 
+: maxNumberClients_(maxClients)
+, currentNumberClients_(0)
+, serverSocketDescriptor_(-1)
+, isRunning_(false)
+, quitSignal_(true)
 {
 }
 

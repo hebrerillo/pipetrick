@@ -23,7 +23,7 @@ public:
      *
      * @param[in] maxClients The maximum number of parallel clients that this server can attend at the same time.
      */
-    Server(size_t maxClients);
+    explicit Server(size_t maxClients);
 
     /**
      * Starts the server to listen to connections on port 'port' in a new thread that will execute the method 'run'.

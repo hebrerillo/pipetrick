@@ -54,8 +54,7 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE], const s
     size_t bufferPosition = 0;
     memset(buffer, 0, BUFFER_SIZE);
 
-    bool keepReading = true;
-    while (keepReading)
+    while (true)
     {
         ssize_t bytes = read(socketDescriptor, buffer + bufferPosition, BUFFER_SIZE);
         if (bytes == 0)
