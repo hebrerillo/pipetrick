@@ -1,0 +1,17 @@
+{
+   Helgrind_thread
+   Helgrind:Race
+   fun:memset
+   fun:get_cached_stack
+   fun:allocate_stack
+   fun:pthread_create@@GLIBC_2.2.5
+   ...
+}
+
+{
+   Helgrind_not_lock_held
+   Helgrind:Misc
+   ...
+   fun:__pthread_cond_wait_common
+   ...
+}
