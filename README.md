@@ -10,7 +10,7 @@
     - [Valgrind](#valgrind)
     
 
-##Project
+## Project
 
 The 'self pipe trick' is a technique used to close a pending connection from a different thread.
 
