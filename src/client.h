@@ -23,10 +23,8 @@ public:
      * Creates the pipe file descriptors for 'pipeDescriptors_'.
      *
      * @param[in] timeOut The time out to wait for socket operations.
-     * @param[in] serverIP The IP address of the remote server.
-     * @param[in] port The port where the remote server is listening to connections.
      */
-    Client(const std::chrono::microseconds& timeOut = DEFAULT_TIMEOUT, const char* serverIP = DEFAULT_IP, int port = DEFAULT_PORT);
+    Client(const std::chrono::microseconds& timeOut = DEFAULT_TIMEOUT);
 
     ~Client();
 
@@ -39,9 +37,11 @@ public:
      *
      * @param[in/out] serverDelay The amount of time that the server will sleep before answering back to this client. If the call is successful, this method
      *                            will modify this parameter by increasing its value by one.
+     * @param[in] serverIP The IP address of the remote server.
+     * @param[in] serverPort The port where the remote server is listening to connections.
      * @return true if this client had a response from the server, false if the time out expired, a call to 'stop' was performed while waiting or an error occurred.
      */
-    bool sendDelayToServer(std::chrono::milliseconds& serverDelay);
+    bool sendDelayToServer(std::chrono::milliseconds& serverDelay, const std::string& serverIP = DEFAULT_IP, int serverPort = DEFAULT_PORT);
 
     /**
      * Quits any pending connection by a previous call to 'sendDelayToServer' by using the self pipe trick.
@@ -55,9 +55,11 @@ private:
      * Performs a connection operation to 'serverIP_' on port 'serverPort_'.
      *
      * @param[in] socketDescriptor The socket descriptor of this client.
+     * @param[in] serverIP The IP address of the remote server.
+     * @param[in] serverPort The port where the remote server is listening to connections.
      * @return true if the connection operation was succesfull, false otherwise.
      */
-    bool connectToServer(int socketDescriptor);
+    bool connectToServer(int socketDescriptor, const std::string& serverIP, int serverPort);
 
     /**
      * Closes the socket descriptor 'socketDescriptor' and clears the flag 'isRunning_' to notify all threads.
@@ -79,8 +81,6 @@ private:
     bool checkPipeDescriptorsAndRun();
 
     std::chrono::microseconds timeOut_; //The maximum time to wait for socket operations to complete.
-    std::string serverIP_;
-    int serverPort_;
     int pipeDescriptors_[2]; //The file descriptors involved in the 'Self pipe trick'
     std::mutex mutex_;
     bool isRunning_; //True if there is a pending connection, false otherwise.

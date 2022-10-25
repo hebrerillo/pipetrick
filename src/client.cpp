@@ -8,8 +8,9 @@ const char *Client::DEFAULT_IP = "127.0.0.1";
 const std::chrono::milliseconds Client::MAXIMUM_WAITING_TIME_FOR_FLAG = std::chrono::milliseconds(2000);
 const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseconds(5 * 1000 * 1000);
 
-Client::Client(const std::chrono::microseconds& timeOut, const char* serverIP, int port) :
-         timeOut_(timeOut), serverIP_(serverIP), serverPort_(port), isRunning_(false)
+Client::Client(const std::chrono::microseconds& timeOut) 
+: timeOut_(timeOut)
+, isRunning_(false)
 {
     pipeDescriptors_[0] = -1;
     pipeDescriptors_[1] = -1;
@@ -70,12 +71,12 @@ void Client::closeAndNotify(int socketDescriptor)
     quitCV_.notify_all();
 }
 
-bool Client::connectToServer(int socketDescriptor)
+bool Client::connectToServer(int socketDescriptor, const std::string& serverIP, int serverPort)
 {
     struct sockaddr_in serverAddress;
-    serverAddress.sin_addr.s_addr = inet_addr(serverIP_.c_str());
+    serverAddress.sin_addr.s_addr = inet_addr(serverIP.c_str());
     serverAddress.sin_family = AF_INET;
-    serverAddress.sin_port = htons(serverPort_);
+    serverAddress.sin_port = htons(serverPort);
 
     if (connect(socketDescriptor, (struct sockaddr*) &serverAddress, sizeof(serverAddress)) == -1)
     {
@@ -104,7 +105,7 @@ bool Client::checkPipeDescriptorsAndRun()
     return true;
 }
 
-bool Client::sendDelayToServer(std::chrono::milliseconds& serverDelay)
+bool Client::sendDelayToServer(std::chrono::milliseconds& serverDelay, const std::string& serverIP, int serverPort)
 {
     int socketDescriptor;
     if (!Common::createSocket(socketDescriptor, SOCK_NONBLOCK, "Client:") || !checkPipeDescriptorsAndRun())
@@ -112,7 +113,7 @@ bool Client::sendDelayToServer(std::chrono::milliseconds& serverDelay)
         return false;
     }
     
-    if (!connectToServer(socketDescriptor))
+    if (!connectToServer(socketDescriptor, serverIP, serverPort))
     {
         closeAndNotify(socketDescriptor);
         return false;
