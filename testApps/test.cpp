@@ -187,6 +187,80 @@ TEST_F(PipeTrickTest, WhenAddingSomeClientsWithDifferentSleepingTimes_ThenTheSer
     server.stop();
 }
 
+TEST_F(PipeTrickTest, WhenAClientConnectsToTwoDifferentServers_ThenBothServersReturnTheExpectedValue)
+{
+    const uint64_t SMALL_DELAY = 50;
+    const int SECOND_SERVER_PORT = 8081;
+    size_t const MAX_NUMBER_CLIENTS = 1;
+    
+    Server server(MAX_NUMBER_CLIENTS);
+    Server server2(MAX_NUMBER_CLIENTS);
+    server.start();
+    server2.start(SECOND_SERVER_PORT);
+
+    Client client;
+
+    std::thread threadFirstConnection([&client, SMALL_DELAY](){
+        std::chrono::milliseconds serverDelay(SMALL_DELAY);
+        EXPECT_TRUE(client.sendDelayToServer(serverDelay));
+        EXPECT_TRUE(serverDelay.count() == (SMALL_DELAY + 1));
+    });
+
+    std::thread threadSecondConnection([&client, SECOND_SERVER_PORT, SMALL_DELAY](){
+        std::chrono::milliseconds serverDelay(SMALL_DELAY + 1);
+        EXPECT_TRUE(client.sendDelayToServer(serverDelay, "127.0.0.1", SECOND_SERVER_PORT));
+        EXPECT_TRUE(serverDelay.count() == (SMALL_DELAY + 2));
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+    client.stop();
+    threadSecondConnection.join();
+    threadFirstConnection.join();
+    server.stop();
+    server2.stop();
+}
+
+TEST_F(PipeTrickTest, WhenAClientConnectsToTwoDifferentServersAndClientIsStopped_ThenTheQuitProcessIsFast)
+{
+    const uint64_t LONG_DELAY = 90000;
+    const int SECOND_SERVER_PORT = 8081;
+    size_t const MAX_NUMBER_CLIENTS = 1;
+    uint64_t MAX_ELAPSED_TIME = 60; //The maximum elapsed time before and after stopping client and server, in milliseconds.
+
+    if (RUNNING_ON_VALGRIND)
+    {
+        MAX_ELAPSED_TIME = 9000;
+    }
+    
+    Server server(MAX_NUMBER_CLIENTS);
+    Server server2(MAX_NUMBER_CLIENTS);
+    server.start();
+    server2.start(SECOND_SERVER_PORT);
+
+    Client client;
+
+    std::thread threadFirstConnection([&client, LONG_DELAY](){
+        std::chrono::milliseconds serverDelay(LONG_DELAY);
+        EXPECT_FALSE(client.sendDelayToServer(serverDelay));
+    });
+
+    std::thread threadSecondConnection([&client, SECOND_SERVER_PORT, LONG_DELAY](){
+        std::chrono::milliseconds serverDelay(LONG_DELAY + 1);
+        EXPECT_FALSE(client.sendDelayToServer(serverDelay, "127.0.0.1", SECOND_SERVER_PORT));
+    });
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
+    client.stop();
+    threadSecondConnection.join();
+    threadFirstConnection.join();
+    server.stop();
+    server2.stop();
+    std::chrono::milliseconds elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds> (std::chrono::steady_clock::now() - begin);
+    EXPECT_LT(elapsedTime.count(), MAX_ELAPSED_TIME);
+}
+
 TEST_F(PipeTrickTest, WhenAClientTellsTheServerToSleepForAVeryLongTimeAndTheClientIsStopped_ThenTheServerStopsTheSleep)
 {
     size_t const MAX_NUMBER_CLIENTS = 1;

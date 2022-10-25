@@ -83,7 +83,7 @@ private:
     std::chrono::microseconds timeOut_; //The maximum time to wait for socket operations to complete.
     int pipeDescriptors_[2]; //The file descriptors involved in the 'Self pipe trick'
     std::mutex mutex_;
-    bool isRunning_; //True if there is a pending connection, false otherwise.
+    size_t numConnections_; //The number of current connections of this client.
     std::condition_variable quitCV_; //To notify to the main that there are no pending connections.
 };
 }

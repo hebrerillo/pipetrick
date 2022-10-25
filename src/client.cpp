@@ -10,7 +10,7 @@ const std::chrono::microseconds Client::DEFAULT_TIMEOUT = std::chrono::microseco
 
 Client::Client(const std::chrono::microseconds& timeOut) 
 : timeOut_(timeOut)
-, isRunning_(false)
+, numConnections_(0)
 {
     pipeDescriptors_[0] = -1;
     pipeDescriptors_[1] = -1;
@@ -36,9 +36,9 @@ void Client::stop()
 void Client::writeToPipeAndWait()
 {
     std::unique_lock < std::mutex > lock(mutex_);
-    if (!isRunning_)
+    if (numConnections_ == 0)
     {
-        Log::logVerbose("Client::writeToPipeAndWait - Client is not running.");
+        Log::logVerbose("Client::writeToPipeAndWait - Client does not have any pending connection.");
         return;
     }
 
@@ -49,7 +49,7 @@ void Client::writeToPipeAndWait()
     }
     auto quitPredicate = [this]()
     {
-        return !isRunning_;
+        return numConnections_ == 0;
     };
 
     if (!quitCV_.wait_for(lock, MAXIMUM_WAITING_TIME_FOR_FLAG, quitPredicate))
@@ -62,12 +62,12 @@ void Client::writeToPipeAndWait()
 void Client::closeAndNotify(int socketDescriptor)
 {
     std::unique_lock < std::mutex > lock(mutex_);
-    if (!isRunning_)
+    if (numConnections_ == 0)
     {
-        Log::logVerbose("Client::closeAndNotify - Client is not running.");
+        Log::logVerbose("Client::closeAndNotify - Client does not have any pending connection.");
     }
     close(socketDescriptor);
-    isRunning_ = false;
+    numConnections_--;
     quitCV_.notify_all();
 }
 
@@ -101,23 +101,26 @@ bool Client::checkPipeDescriptorsAndRun()
         return false;
     }
 
-    isRunning_ = true;
     return true;
 }
 
 bool Client::sendDelayToServer(std::chrono::milliseconds& serverDelay, const std::string& serverIP, int serverPort)
 {
     int socketDescriptor;
-    if (!Common::createSocket(socketDescriptor, SOCK_NONBLOCK, "Client:") || !checkPipeDescriptorsAndRun())
+    if (!Common::createSocket(socketDescriptor, SOCK_NONBLOCK, "Client:"))
     {
         return false;
     }
     
-    if (!connectToServer(socketDescriptor, serverIP, serverPort))
+    if (!connectToServer(socketDescriptor, serverIP, serverPort) || !checkPipeDescriptorsAndRun())
     {
-        closeAndNotify(socketDescriptor);
+        close(socketDescriptor);
         return false;
     }
+
+    mutex_.lock();
+    numConnections_++;
+    mutex_.unlock();
 
     fd_set writeFds;
     fd_set readFds;
