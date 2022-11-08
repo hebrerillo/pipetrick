@@ -1,4 +1,4 @@
-# An example of the self pipe trick.
+# An example of the self pipe trick in the Linux platform.
 
 ## Table of contents
 
