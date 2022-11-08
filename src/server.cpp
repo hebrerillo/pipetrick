@@ -18,7 +18,7 @@ Server::Server(size_t maxClients)
 
 void Server::closeClientAndNotify(int socketClientDescriptor)
 {
-    std::unique_lock <std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     close(socketClientDescriptor);
     currentNumberClients_--;
     clientsCV_.notify_all();
@@ -233,7 +233,7 @@ void Server::waitForRunningThread()
 
 void Server::quitRunningThread()
 {
-    std::unique_lock <std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     write(pipeDescriptors_[1], "0", 1);
     quitSignal_ = true;
     clientsCV_.notify_all();
@@ -263,7 +263,7 @@ bool Server::doAccept()
         return false;
     }
 
-    std::unique_lock < std::mutex > lock(mutex_);
+    std::scoped_lock lock(mutex_);
     currentNumberClients_++;
     std::thread(&Server::runClient, this, socketClientDescriptor).detach();
     return true;
@@ -344,7 +344,7 @@ void Server::run()
 
 size_t Server::getNumberOfClients() const
 {
-    std::unique_lock < std::mutex > lock(mutex_);
+    std::scoped_lock lock(mutex_);
     return currentNumberClients_;
 }
 

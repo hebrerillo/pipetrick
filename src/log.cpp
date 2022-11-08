@@ -9,7 +9,7 @@ std::mutex Log::mutex_;
 
 void Log::logError(const std::string& errorMsg)
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     std::cout << errorMsg << std::endl;
 }
 
@@ -21,7 +21,7 @@ void Log::logError(const std::string &errorMsg, int errnoNumber)
 void Log::logVerbose(const std::string& message)
 {
 #ifdef VERBOSE_LOGIN
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     std::cout << message << std::endl;
 #else
     (void)message;

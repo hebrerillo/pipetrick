@@ -61,7 +61,7 @@ void Client::writeToPipeAndWait()
 
 void Client::closeAndNotify(int socketDescriptor)
 {
-    std::unique_lock < std::mutex > lock(mutex_);
+    std::scoped_lock lock(mutex_);
     if (numConnections_ == 0)
     {
         Log::logVerbose("Client::closeAndNotify - Client does not have any pending connection.");
@@ -93,7 +93,7 @@ bool Client::connectToServer(int socketDescriptor, const std::string& serverIP, 
 
 bool Client::checkPipeDescriptorsAndRun()
 {
-    std::unique_lock<std::mutex> lock(mutex_);
+    std::scoped_lock lock(mutex_);
     if (pipeDescriptors_[0] == -1 || pipeDescriptors_[1] == -1)
     {
         int errorNumber = errno;
