@@ -209,7 +209,12 @@ bool Server::start(int port)
     isRunning_ = true;
     quitSignal_ = false;
 #ifdef WITH_PTHREADS
-    pthread_create(&serverThread_, NULL, &Server::runHelper, this);
+    if (pthread_create(&serverThread_, NULL, &Server::runHelper, this) != 0)
+    {
+        int errorNum = errno;
+        Log::logError("Server::start - Could not create the server thread.", errorNum);
+        return false;
+    }
 #else
     serverThread_ = std::thread(&Server::run, this);
 #endif
@@ -221,7 +226,11 @@ void Server::stop()
     quitRunningThread();
     waitForRunningThread();
 #ifdef WITH_PTHREADS
-    pthread_join(serverThread_, NULL);
+    if (pthread_join(serverThread_, NULL) != 0)
+    {
+        int errorNum = errno;
+        Log::logError("Server::stop - Could not join the server thread.", errorNum);
+    }
 #else
     serverThread_.join();
 #endif
@@ -240,7 +249,7 @@ void Server::waitForRunningThread()
 
     if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, quitPredicate))
     {
-        Log::logError("Server::stop - Time out expired when waiting for the running thread to finish!!!");
+        Log::logError("Server::waitForRunningThread - Time out expired when waiting for the running thread to finish!!!");
     }
     else
     {
