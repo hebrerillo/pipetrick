@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.13.4)
 project(pipetrick)
 
-add_compile_options(-g -std=c++17 -Wall -Wextra -pedantic -Werror -DLINUX -DVERBOSE_LOGIN)
+add_compile_options(-g -std=c++17 -Wall -Wextra -pedantic -Werror -DLINUX -DVERBOSE_LOGIN -DWITH_PTHREADS)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${pipetrick_SOURCE_DIR}/build/bin)
 
 add_subdirectory(src)

@@ -178,6 +178,15 @@ bool Server::bindAndListen(int port)
     return true;
 }
 
+#ifdef WITH_PTHREADS
+void* Server::runHelper(void *context)
+{
+    Server* self = static_cast<Server*>(context);
+    self->run();
+    return NULL;
+}
+#endif
+
 bool Server::start(int port)
 {
     if (!Common::createSocket(serverSocketDescriptor_, SOCK_NONBLOCK, "Server:"))
@@ -199,7 +208,11 @@ bool Server::start(int port)
 
     isRunning_ = true;
     quitSignal_ = false;
+#ifdef WITH_PTHREADS
+    pthread_create(&serverThread_, NULL, &Server::runHelper, this);
+#else
     serverThread_ = std::thread(&Server::run, this);
+#endif
     return true;
 }
 
@@ -207,7 +220,11 @@ void Server::stop()
 {
     quitRunningThread();
     waitForRunningThread();
+#ifdef WITH_PTHREADS
+    pthread_join(serverThread_, NULL);
+#else
     serverThread_.join();
+#endif
     close(serverSocketDescriptor_);
     close(pipeDescriptors_[0]);
     close(pipeDescriptors_[1]);
