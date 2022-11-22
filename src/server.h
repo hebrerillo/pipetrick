@@ -117,11 +117,23 @@ private:
      * The method executed by the server to attend connections. It will be executed until a call to 'stop' is performed.
      */
     void run();
+
 #ifdef WITH_PTHREADS
+    typedef struct clientArgs_
+    {
+        Server* self;
+        int socketClientDescriptor;
+    } clientArgs;
+
     /**
      * Helper function to perform a call to 'run' when using Posix threads.
      */
     static void* runHelper(void *context);
+
+    /**
+     * Helper function to perform a call to 'runClient' when using Posix threads.
+     */
+    static void* runClientHelper(void* context);
 #endif
 
     size_t maxNumberClients_; //The maximum number of parallel clients allowed.
@@ -130,12 +142,14 @@ private:
     bool isRunning_; //Whether the server thread is running.
     bool quitSignal_; //Will be raised when 'stop' is called.
 #ifdef WITH_PTHREADS
-    pthread_t serverThread_;
+    pthread_t serverThread_; //The running thread
+    mutable pthread_mutex_t mutex_;  //To notify on 'clientsCV_'
+    pthread_cond_t clientsCV_; //Will block when 'currentNumberClients_ >= maxNumberClients_'
 #else
     std::thread serverThread_; //The running thread
-#endif
     mutable std::mutex mutex_; //To notify on 'clientsCV_'
     std::condition_variable clientsCV_; //Will block when 'currentNumberClients_ >= maxNumberClients_'
+#endif
     int pipeDescriptors_[2]; //The file descriptors involved in the 'Self pipe trick'
 };
 

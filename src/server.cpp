@@ -18,10 +18,18 @@ Server::Server(size_t maxClients)
 
 void Server::closeClientAndNotify(int socketClientDescriptor)
 {
+#ifdef WITH_PTHREADS
+    pthread_mutex_lock(&mutex_);
+    close(socketClientDescriptor);
+    currentNumberClients_--;
+    pthread_cond_broadcast(&clientsCV_);
+    pthread_mutex_unlock(&mutex_);
+#else
     std::scoped_lock lock(mutex_);
     close(socketClientDescriptor);
     currentNumberClients_--;
     clientsCV_.notify_all();
+#endif
 }
 
 bool Server::sleep(int socketClientDescriptor, char clientBuffer[BUFFER_SIZE])
@@ -183,6 +191,16 @@ void* Server::runHelper(void *context)
 {
     Server* self = static_cast<Server*>(context);
     self->run();
+    pthread_exit(NULL);
+    return NULL;
+}
+
+void* Server::runClientHelper(void* context)
+{
+    clientArgs* args = static_cast<clientArgs*>(context);
+    args->self->runClient(args->socketClientDescriptor);
+    delete args;
+    pthread_exit(NULL);
     return NULL;
 }
 #endif
@@ -209,6 +227,20 @@ bool Server::start(int port)
     isRunning_ = true;
     quitSignal_ = false;
 #ifdef WITH_PTHREADS
+    if (pthread_mutex_init(&mutex_, NULL) != 0)
+    {
+        int errorNum = errno;
+        Log::logError("Server::Server - Error initializing mutex", errorNum);
+        return false;
+    }
+
+    if (pthread_cond_init(&clientsCV_, NULL) != 0)
+    {
+        int errorNum = errno;
+        Log::logError("Server::Server - Error initializing condition variable", errorNum);
+        return false;
+    }
+
     if (pthread_create(&serverThread_, NULL, &Server::runHelper, this) != 0)
     {
         int errorNum = errno;
@@ -231,6 +263,19 @@ void Server::stop()
         int errorNum = errno;
         Log::logError("Server::stop - Could not join the server thread.", errorNum);
     }
+
+    if (pthread_cond_destroy(&clientsCV_) != 0)
+    {
+        int errorNum = errno;
+        Log::logError("Server::stop - Error destroying condition variable", errorNum);
+    }
+
+    if (pthread_mutex_destroy(&mutex_) != 0)
+    {
+        int errorNum = errno;
+        Log::logError("Server::stop - Error destroying the mutex", errorNum);
+    }
+
 #else
     serverThread_.join();
 #endif
@@ -241,6 +286,23 @@ void Server::stop()
 
 void Server::waitForRunningThread()
 {
+#ifdef WITH_PTHREADS
+    pthread_mutex_lock (&mutex_);
+    int error = 0;
+    while(isRunning_ == true && error == 0)
+    {
+        error = pthread_cond_wait (&clientsCV_, &mutex_); //TODO check time out
+    }
+
+    if (error != 0)
+    {
+        int errorNum = error;
+        Log::logError("Server::waitForRunningThread - Error waiting for the running thread to finish. ", errorNum);
+    }
+
+    Common::consumePipe(pipeDescriptors_[0], "Server:");
+    pthread_mutex_unlock (&mutex_);
+#else
     std::unique_lock < std::mutex > lock(mutex_);
     auto quitPredicate = [this]()
     {
@@ -255,14 +317,23 @@ void Server::waitForRunningThread()
     {
         Common::consumePipe(pipeDescriptors_[0], "Server:");
     }
+#endif
 }
 
 void Server::quitRunningThread()
 {
+#ifdef WITH_PTHREADS
+    pthread_mutex_lock(&mutex_);
+    write(pipeDescriptors_[1], "0", 1);
+    quitSignal_ = true;
+    pthread_cond_broadcast(&clientsCV_);
+    pthread_mutex_unlock(&mutex_);
+#else
     std::scoped_lock lock(mutex_);
     write(pipeDescriptors_[1], "0", 1);
     quitSignal_ = true;
     clientsCV_.notify_all();
+#endif
 }
 
 bool Server::doAccept()
@@ -288,16 +359,31 @@ bool Server::doAccept()
         Log::logVerbose("Server::doAccept - Quit signal was raised while waiting for the current number of clients to decrease.");
         return false;
     }
-
+#ifdef WITH_PTHREADS
+    pthread_mutex_lock(&mutex_);
+    currentNumberClients_++;
+    pthread_mutex_unlock(&mutex_);
+    pthread_t clientThread;
+    clientArgs* args = new clientArgs;
+    args->socketClientDescriptor = socketClientDescriptor;
+    args->self = this;
+    pthread_create(&clientThread, NULL, &Server::runClientHelper, args);
+    pthread_detach(clientThread);
+#else
     std::scoped_lock lock(mutex_);
     currentNumberClients_++;
     std::thread(&Server::runClient, this, socketClientDescriptor).detach();
+#endif
     return true;
 }
 
 bool Server::checkForMaximumNumberClients()
 {
+#ifdef WITH_PTHREADS
+    pthread_mutex_lock(&mutex_);
+#else
     std::unique_lock < std::mutex > lock(mutex_);
+#endif
     if (currentNumberClients_ >= maxNumberClients_)
     {
         Log::logVerbose("Server::checkForMaximumNumberClients - The maximum number of clients has been reached. Waiting until one client finishes.");
@@ -305,18 +391,58 @@ bool Server::checkForMaximumNumberClients()
         {
             Log::logError("Server::checkForMaximumNumberClients - The current number of clients is way beyond the maximum number allowed. This should never happen!!!");
         }
-    
+#ifdef WITH_PTHREADS
+        int error = 0;
+        while(quitSignal_ == false && currentNumberClients_ >= maxNumberClients_ && error == 0)
+        {
+            error = pthread_cond_wait (&clientsCV_, &mutex_); //TODO check time out
+        }
+
+        if (error != 0)
+        {
+            Log::logError("Server::checkForMaximumNumberClients - Error when waiting for quitSignal to be raised");
+        }
+#else
         clientsCV_.wait(lock, [this]()
         {
             return (currentNumberClients_ < maxNumberClients_) || quitSignal_;
         });
+#endif
     }
-
+#ifdef WITH_PTHREADS
+    bool quitSignalAux = quitSignal_;
+    pthread_mutex_unlock(&mutex_);
+    return quitSignalAux;
+#else
     return quitSignal_;
+#endif
 }
 
 void Server::waitForClientsToFinish()
 {
+#ifdef WITH_PTHREADS
+    pthread_mutex_lock(&mutex_);
+    if(currentNumberClients_ == 0)
+    {
+        Log::logVerbose("Server::waitForClientsToFinish - No clients connected.");
+    }
+    else
+    {
+        int error = 0;
+        while(currentNumberClients_ > 0 && error == 0)
+        {
+            error = pthread_cond_wait (&clientsCV_, &mutex_);
+        }
+
+        if (error != 0)
+        {
+            Log::logError("Server::waitForClientsToFinish  - Error when waiting for the number of clients to become 0. Number of clients = " + std::to_string(currentNumberClients_));
+        }
+    }
+    isRunning_ = false;
+    pthread_cond_broadcast(&clientsCV_);
+    pthread_mutex_unlock(&mutex_);
+#else
     std::unique_lock <std::mutex> lock(mutex_);
     auto clientsToFinishPredicate = [this]()
     {
@@ -334,6 +460,7 @@ void Server::waitForClientsToFinish()
 
     isRunning_ = false;
     clientsCV_.notify_all();
+#endif
 }
 
 void Server::run()
@@ -370,8 +497,15 @@ void Server::run()
 
 size_t Server::getNumberOfClients() const
 {
+#ifdef WITH_PTHREADS
+    pthread_mutex_lock(&mutex_);
+    size_t value = currentNumberClients_;
+    pthread_mutex_unlock(&mutex_);
+    return value;
+#else
     std::scoped_lock lock(mutex_);
     return currentNumberClients_;
+#endif
 }
 
 }
