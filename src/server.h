@@ -1,7 +1,7 @@
 #ifndef PT_SERVER_H
 #define PT_SERVER_H
 
-#ifdef WITH_PTHREADS //TODO review the rest of the includes when using pthreads
+#ifdef WITH_PTHREADS
 #include <pthread.h>
 #include <sys/time.h>
 #else
