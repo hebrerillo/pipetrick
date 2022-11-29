@@ -517,7 +517,6 @@ void Server::run()
         }
     }
 
-    quitRunningThread();
     waitForClientsToFinish();
 }
 
