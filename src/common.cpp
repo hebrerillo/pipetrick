@@ -59,7 +59,7 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE], const s
         ssize_t bytes = read(socketDescriptor, buffer + bufferPosition, BUFFER_SIZE);
         if (bytes == 0)
         {
-            Log::logError(prefix + "Common::readMessage - The remote peer closed the connection.");
+            Log::logVerbose(prefix + "Common::readMessage - The remote peer closed the connection.");
             return false;
         }
         else if (bytes == -1)
@@ -67,7 +67,7 @@ bool Common::readMessage(int socketDescriptor, char buffer[BUFFER_SIZE], const s
             errorNumber = errno;
             if (errorNumber == EAGAIN || errorNumber == EWOULDBLOCK)
             {
-                Log::logError(prefix + "Common::readMessage - Reached time out when reading from the end point");
+                Log::logVerbose(prefix + "Common::readMessage - Reached time out when reading from the end point");
             }
             else
             {
@@ -99,7 +99,7 @@ bool Common::writeMessage(int socketDescriptor, const char message[BUFFER_SIZE],
         ssize_t bytesSent = write(socketDescriptor, buffer, remainingBytesToSend);
         if (bytesSent == 0)
         {
-            Log::logError(prefix + "Common::writeMessage - The remote peer closed the connection.");
+            Log::logVerbose(prefix + "Common::writeMessage - The remote peer closed the connection.");
             return false;
         }
 

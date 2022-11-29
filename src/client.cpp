@@ -186,7 +186,7 @@ bool Client::sendDelayToServer(std::chrono::milliseconds& serverDelay, const std
     memset(message, 0, sizeof(message));
     if (!Common::readMessage(socketDescriptor, message, "Client:"))
     {
-        Log::logError("Client::sendDelayToServer - Could not get the increased delay from the server.");
+        Log::logVerbose("Client::sendDelayToServer - Could not get the increased delay from the server.");
         closeAndNotify(socketDescriptor);
         return false;
     }

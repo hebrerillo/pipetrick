@@ -5,25 +5,17 @@
 namespace pipetrick
 {
 
-const std::chrono::milliseconds Server::MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH = std::chrono::milliseconds(2000);
+const uint64_t Server::MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH = 2;
 
-Server::Server(size_t maxClients) 
-: maxNumberClients_(maxClients)
-, currentNumberClients_(0)
-, serverSocketDescriptor_(-1)
-, isRunning_(false)
-, quitSignal_(true)
+Server::Server(size_t maxClients) :
+        maxNumberClients_(maxClients), currentNumberClients_(0), serverSocketDescriptor_(-1), isRunning_(false), quitSignal_(true)
 {
 }
 
 void Server::closeClientAndNotify(int socketClientDescriptor)
 {
 #ifdef WITH_PTHREADS
-    pthread_mutex_lock(&mutex_);
-    close(socketClientDescriptor);
-    currentNumberClients_--;
-    pthread_cond_broadcast(&clientsCV_);
-    pthread_mutex_unlock(&mutex_);
+    closeClientAndNotifyPosix(socketClientDescriptor);
 #else
     std::scoped_lock lock(mutex_);
     close(socketClientDescriptor);
@@ -187,6 +179,16 @@ bool Server::bindAndListen(int port)
 }
 
 #ifdef WITH_PTHREADS
+
+void Server::closeClientAndNotifyPosix(int socketClientDescriptor)
+{
+    pthread_mutex_lock(&mutex_);
+    close(socketClientDescriptor);
+    currentNumberClients_--;
+    pthread_cond_broadcast(&clientsCV_);
+    pthread_mutex_unlock(&mutex_);
+}
+
 void* Server::runHelper(void *context)
 {
     Server* self = static_cast<Server*>(context);
@@ -289,15 +291,26 @@ void Server::waitForRunningThread()
 #ifdef WITH_PTHREADS
     pthread_mutex_lock (&mutex_);
     int error = 0;
+    struct timeval now;
+    struct timespec timeout;
+    memset(&now, 0, sizeof(struct timeval));
+    memset(&timeOut, 0, sizeof(struct timespec));
+    gettimeofday(&now,NULL);
+
+    timeout.tv_sec = now.tv_sec + MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH;
+
     while(isRunning_ == true && error == 0)
     {
-        error = pthread_cond_wait (&clientsCV_, &mutex_); //TODO check time out
+        error = pthread_cond_timedwait (&clientsCV_, &mutex_, &timeout);
     }
-
-    if (error != 0)
+    if (error == ETIMEDOUT)
+    {
+        Log::logError("Server::waitForRunningThread - Time out expired when waiting for the running thread to finish!!!");
+    }
+    else if (error != 0)
     {
         int errorNum = error;
-        Log::logError("Server::waitForRunningThread - Error waiting for the running thread to finish. ", errorNum);
+        Log::logError("Server::waitForRunningThread - Error waiting for the running thread to finish", errorNum);
     }
 
     Common::consumePipe(pipeDescriptors_[0], "Server:");
@@ -309,7 +322,7 @@ void Server::waitForRunningThread()
         return !isRunning_;
     };
 
-    if (!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, quitPredicate))
+    if (!clientsCV_.wait_for(lock, std::chrono::seconds(MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH), quitPredicate))
     {
         Log::logError("Server::waitForRunningThread - Time out expired when waiting for the running thread to finish!!!");
     }
@@ -347,7 +360,7 @@ bool Server::doAccept()
         int errorNumber = errno;
         if (errorNumber == EMFILE)
         {
-            Log::logError("Server::doAccept - The system reached the maximum number of open files."); 
+            Log::logError("Server::doAccept - The system reached the maximum number of open files.");
             return true; //This client is not attended, but the server is kept alive
         }
         Log::logError("Server::doAccept - Could not accept on the socket descriptor", errorNumber);
@@ -395,7 +408,7 @@ bool Server::checkForMaximumNumberClients()
         int error = 0;
         while(quitSignal_ == false && currentNumberClients_ >= maxNumberClients_ && error == 0)
         {
-            error = pthread_cond_wait (&clientsCV_, &mutex_); //TODO check time out
+            error = pthread_cond_wait (&clientsCV_, &mutex_);
         }
 
         if (error != 0)
@@ -429,12 +442,23 @@ void Server::waitForClientsToFinish()
     else
     {
         int error = 0;
+        struct timeval now;
+        struct timespec timeout;
+        memset(&now, 0, sizeof(struct timeval));
+        memset(&timeOut, 0, sizeof(struct timespec));
+        gettimeofday(&now,NULL);
+
+        timeout.tv_sec = now.tv_sec + MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH;
         while(currentNumberClients_ > 0 && error == 0)
         {
-            error = pthread_cond_wait (&clientsCV_, &mutex_);
+            error = pthread_cond_timedwait (&clientsCV_, &mutex_, &timeout);
         }
 
-        if (error != 0)
+        if (error == ETIMEDOUT)
+        {
+            Log::logError("Server::waitForClientsToFinish  - Time out expired when waiting for all the clients to finish. There are still some clients connected!!!");
+        }
+        else if (error != 0)
         {
             Log::logError("Server::waitForClientsToFinish  - Error when waiting for the number of clients to become 0. Number of clients = " + std::to_string(currentNumberClients_));
         }
@@ -443,17 +467,17 @@ void Server::waitForClientsToFinish()
     pthread_cond_broadcast(&clientsCV_);
     pthread_mutex_unlock(&mutex_);
 #else
-    std::unique_lock <std::mutex> lock(mutex_);
+    std::unique_lock < std::mutex > lock(mutex_);
     auto clientsToFinishPredicate = [this]()
     {
         return currentNumberClients_ == 0;
     };
 
-    if(currentNumberClients_ == 0)
+    if (currentNumberClients_ == 0)
     {
         Log::logVerbose("Server::waitForClientsToFinish - No clients connected.");
     }
-    else if(!clientsCV_.wait_for(lock, MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH, clientsToFinishPredicate))
+    else if (!clientsCV_.wait_for(lock, std::chrono::seconds(MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH), clientsToFinishPredicate))
     {
         Log::logError("Server::waitForClientsToFinish  - Time out expired when waiting for all the clients to finish. There are still some clients connected!!!");
     }
@@ -476,6 +500,7 @@ void Server::run()
         if (Common::doSelect((pipeDescriptors_[0] > serverSocketDescriptor_ ? pipeDescriptors_[0] : serverSocketDescriptor_) + 1, &readFds, nullptr, nullptr, "Server:") != SelectResult::OK)
         {
             quit = true;
+            Log::logError("Server::run - Error doing a select operation");
         }
         else if (FD_ISSET(pipeDescriptors_[0], &readFds))
         {
@@ -487,6 +512,7 @@ void Server::run()
             if (!doAccept())
             {
                 quit = true;
+                Log::logError("Server::run - Error doing an accept operation");
             }
         }
     }

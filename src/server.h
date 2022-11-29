@@ -7,6 +7,7 @@
 #include <atomic>
 #ifdef WITH_PTHREADS //TODO review the rest of the includes when using pthreads
 #include <pthread.h>
+#include <sys/time.h>
 #endif
 #include "common.h"
 
@@ -17,7 +18,7 @@ class Server
 {
 public:
 
-    static const std::chrono::milliseconds MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH;
+    static const uint64_t MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH; //The maximum time to wait for all the clients to finish, in seconds
 
     using SelectResult = Common::SelectResult;
 
@@ -134,6 +135,11 @@ private:
      * Helper function to perform a call to 'runClient' when using Posix threads.
      */
     static void* runClientHelper(void* context);
+
+    /**
+     * Same as 'closeClientAndNotify' but using posix threads.
+     */
+    void closeClientAndNotifyPosix(int socketClientDescriptor);
 #endif
 
     size_t maxNumberClients_; //The maximum number of parallel clients allowed.

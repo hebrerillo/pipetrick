@@ -49,7 +49,7 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
     uint64_t MAX_ELAPSED_TIME = 60; //The maximum elapsed time before and after stopping all clients and server, in milliseconds.
     if (RUNNING_ON_VALGRIND)
     {
-        MAX_ELAPSED_TIME = 9000;
+        MAX_ELAPSED_TIME = 90000;
     }
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -108,7 +108,7 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
     uint64_t MAX_ELAPSED_TIME = 60; //The maximum elapsed time before and after stopping all clients and server, in milliseconds.
     if (RUNNING_ON_VALGRIND)
     {
-        MAX_ELAPSED_TIME = 10000;
+        MAX_ELAPSED_TIME = 1000000;
     }
 
     std::chrono::steady_clock::time_point begin = std::chrono::steady_clock::now();
@@ -116,6 +116,7 @@ TEST_F(PipeTrickTest, WhenConnectingALotOfClientsWithAHighTimeOutToOneServerAndS
 
     for(size_t i = 0; i < clients.size(); i++)
     {
+        clients[i]->client->stop();
         clients[i]->clientThread->join();
         delete clients[i]->clientThread;
         delete clients[i]->client;
@@ -229,7 +230,7 @@ TEST_F(PipeTrickTest, WhenAClientConnectsToTwoDifferentServersAndClientIsStopped
 
     if (RUNNING_ON_VALGRIND)
     {
-        MAX_ELAPSED_TIME = 9000;
+        MAX_ELAPSED_TIME = 900000;
     }
     
     Server server(MAX_NUMBER_CLIENTS);
