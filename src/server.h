@@ -1,13 +1,13 @@
 #ifndef PT_SERVER_H
 #define PT_SERVER_H
 
-#include <thread>
-#include <mutex>
-#include <condition_variable>
-#include <atomic>
 #ifdef WITH_PTHREADS //TODO review the rest of the includes when using pthreads
 #include <pthread.h>
 #include <sys/time.h>
+#else
+#include <thread>
+#include <mutex>
+#include <condition_variable>
 #endif
 #include "common.h"
 

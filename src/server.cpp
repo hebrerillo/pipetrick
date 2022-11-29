@@ -294,7 +294,7 @@ void Server::waitForRunningThread()
     struct timeval now;
     struct timespec timeout;
     memset(&now, 0, sizeof(struct timeval));
-    memset(&timeOut, 0, sizeof(struct timespec));
+    memset(&timeout, 0, sizeof(struct timespec));
     gettimeofday(&now,NULL);
 
     timeout.tv_sec = now.tv_sec + MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH;
@@ -445,7 +445,7 @@ void Server::waitForClientsToFinish()
         struct timeval now;
         struct timespec timeout;
         memset(&now, 0, sizeof(struct timeval));
-        memset(&timeOut, 0, sizeof(struct timespec));
+        memset(&timeout, 0, sizeof(struct timespec));
         gettimeofday(&now,NULL);
 
         timeout.tv_sec = now.tv_sec + MAX_TIME_TO_WAIT_FOR_CLIENTS_TO_FINISH;
